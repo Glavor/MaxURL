@@ -65,8 +65,6 @@ var $$IMU_EXPORT$$;
 	var is_extension = false;
 	var is_webextension = false;
 	var is_extension_bg = false;
-	var is_firefox_webextension = false;
-	var extension_send_message = null;
 	var extension_error_handler = function(context) { };
 	var extension_options_page = null;
 	var is_terminated = false;
@@ -77,7 +75,6 @@ var $$IMU_EXPORT$$;
 	var options_page = "https://qsniyg.github.io/maxurl/options.html";
 	var archive_options_page = "https://web.archive.org/web/20210328063940/https://qsniyg.github.io/maxurl/options.html";
 	var preferred_options_page = options_page;
-	var firefox_addon_page = "https://addons.mozilla.org/en-US/firefox/addon/image-max-url/";
 	var userscript_update_url = "https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js";
 	var greasyfork_update_url = userscript_update_url;
 	var github_issues_page = "https://github.com/qsniyg/maxurl/issues";
@@ -102,14 +99,6 @@ var $$IMU_EXPORT$$;
 	var is_suspended = function(full) {
 		if (is_terminated || !settings.imu_enabled) {
 			return true;
-		}
-		if (full && is_extension) {
-			try {
-				chrome.runtime.getURL("manifest.json");
-			} catch (e) {
-				set_terminated(true);
-				return true;
-			}
 		}
 		return false;
 	};
@@ -1011,8 +1000,6 @@ var $$IMU_EXPORT$$;
 		return 0;
 	}
 	var get_options_page = function() {
-		if (is_extension)
-			return preferred_options_page;
 		if (settings && settings.use_webarchive_for_lib) {
 			return archive_options_page;
 		} else {
@@ -1095,12 +1082,7 @@ var $$IMU_EXPORT$$;
 	var remote_send_message = common_functions["nullfunc"];
 	var remote_send_reply = common_functions["nullfunc"];
 	var imu_message_key = "__IMU_MESSAGE__";
-	if (is_extension) {
-		raw_remote_send_message = function(to, message) {
-			extension_send_message(message);
-		};
-		is_remote_possible = true;
-	} else if (is_interactive) {
+	if (is_interactive) {
 		if (is_in_iframe && window.parent) {
 			id_to_iframe["top"] = window.parent;
 		}
@@ -1248,80 +1230,7 @@ var $$IMU_EXPORT$$;
 	}
 	var extension_requests = {};
 	var do_request_raw = null;
-	if (is_extension) {
-		do_request_raw = function(data) {
-			var reqid;
-			var do_abort = false;
-			extension_send_message({
-				type: "request",
-				data: data
-			}, function(response) {
-				if (response.type !== "id") {
-					console_error("Internal error: Wrong response", response);
-					return;
-				}
-				reqid = response.data;
-				extension_requests[reqid] = {
-					id: reqid,
-					data: data
-				};
-				if (do_abort) {
-					extension_send_message({
-						type: "abort_request",
-						data: reqid
-					});
-					return;
-				}
-			});
-			return {
-				abort: function() {
-					if (reqid === void 0) {
-						console_warn("abort() was called before the request was initialized");
-						do_abort = true;
-						return;
-					}
-					extension_send_message({
-						type: "abort_request",
-						data: reqid
-					});
-				}
-			};
-		};
-		var bad_do_request_raw = function(data) {
-			var req = null;
-			var do_abort = false;
-			extension_send_message({ type: "get_request_nonce" }, function(resp_data) {
-				if (do_abort)
-					return;
-				var nonce = resp_data.data;
-				data = deepcopy(data);
-				if (!data.headers)
-					data.headers = {};
-				var new_headers = {};
-				obj_foreach(data.headers, function(header_name, header_value) {
-					if (header_value === null || header_value === "") {
-						new_headers["X-IMU-" + nonce + "-D-" + header_name] = "true";
-					} else {
-						new_headers["X-IMU-" + nonce + "-H-" + header_name] = header_value;
-					}
-				});
-				data.headers = new_headers;
-				data.url = "https://" + (window.location.host || "google.com") + "/#IMU-" + nonce + "-" + encodeURIComponent(data.url);
-				console_log(data);
-				req = do_request_browser(data);
-			});
-			return {
-				abort: function() {
-					if (!req) {
-						console_warn("abort() was called before the request was initialized");
-						do_abort = true;
-						return;
-					}
-					req.abort();
-				}
-			};
-		};
-	} else if (typeof (GM_xmlhttpRequest) !== "undefined") {
+	if (typeof (GM_xmlhttpRequest) !== "undefined") {
 		if (userscript_manager === "Violentmonkey" && version_compare(userscript_manager_version, "2.12.7") <= 0) {
 			do_request_raw = function(data) {
 				var orig_cbs = {};
@@ -1411,15 +1320,7 @@ var $$IMU_EXPORT$$;
 		}
 	}
 	var open_in_tab_imu = function(imu, bg, cb) {
-		if (is_extension) {
-			extension_send_message({
-				type: "newtab",
-				data: {
-					imu: imu,
-					background: bg
-				}
-			}, cb);
-		} else if (is_userscript && open_in_tab) {
+		if (is_userscript && open_in_tab) {
 			open_in_tab(imu.url, bg);
 			if (cb) {
 				cb();
@@ -1582,9 +1483,7 @@ var $$IMU_EXPORT$$;
 						};
 						if (resp.response) {
 							var mime = null;
-							if (is_extension && "_responseEncoded" in resp && resp._responseEncoded.type) {
-								mime = resp._responseEncoded.type;
-							} else if (resp.responseHeaders) {
+							if (resp.responseHeaders) {
 								var parsed_headers = headers_list_to_dict(parse_headers(resp.responseHeaders));
 								if (parsed_headers["content-type"]) {
 									mime = parsed_headers["content-type"];
@@ -1686,19 +1585,7 @@ var $$IMU_EXPORT$$;
 		if (is_data) {
 			return do_browser_download(imu, filename, cb);
 		}
-		if (is_extension) {
-			extension_send_message({
-				type: "download",
-				data: {
-					imu: imu,
-					filename: fixup_filename(filename),
-					force_saveas: !!settings.enable_webextension_download
-				}
-			}, function() {
-				if (cb)
-					cb();
-			});
-		} else if (use_gm_download) {
+		if (use_gm_download) {
 			var headers;
 			if (imu.headers)
 				headers = headers_dict_to_list(imu.headers);
@@ -2084,19 +1971,7 @@ var $$IMU_EXPORT$$;
 	};
 	var clipboard_write_link = clipboard_write;
 	var get_cookies = null;
-	if (is_extension) {
-		get_cookies = function(url, cb) {
-			if (settings.browser_cookies === false) {
-				return cb(null);
-			}
-			extension_send_message({
-				type: "getcookies",
-				data: { url: url }
-			}, function(message) {
-				cb(message.data);
-			});
-		};
-	} else if (is_userscript) {
+	if (is_userscript) {
 		get_cookies = function(url, cb, options) {
 			if (settings.browser_cookies === false) {
 				return cb(null);
@@ -2136,22 +2011,7 @@ var $$IMU_EXPORT$$;
 		return result;
 	};
 	var get_localstorage = null;
-	if (is_extension) {
-		get_localstorage = function(url, keys, cb, options) {
-			extension_send_message({
-				type: "get_localstorage",
-				data: {
-					url: url,
-					keys: keys,
-					options: options
-				}
-			}, function(data) {
-				if (!data)
-					return cb(null);
-				cb(data.data);
-			});
-		};
-	} else if (is_userscript) {
+	if (is_userscript) {
 		get_localstorage = function(url, keys, cb, options) {
 			if (!_localstorage_check_origin(url))
 				return cb(null);
@@ -15679,29 +15539,6 @@ var $$IMU_EXPORT$$;
 		} else if (typeof GM !== "undefined" && GM.notification) {
 			raw_do_notify = GM.notification;
 		}
-	} else if (is_extension) {
-		raw_do_notify = function(details, ondone) {
-			var jsoned_details = deepcopy(details, { json: true });
-			if (details.onclick)
-				jsoned_details.onclick = true;
-			extension_send_message({
-				type: "notification",
-				data: jsoned_details
-			}, function(response) {
-				if (!response || !response.data)
-					return;
-				if (response.data.action === "clicked") {
-					if (details.onclick) {
-						details.onclick();
-					}
-				} else if (response.data.action === "closed") {
-					ondone = details.ondone || ondone;
-					if (ondone) {
-						ondone();
-					}
-				}
-			});
-		};
 	}
 	var do_notify = function(details) {
 		if (!raw_do_notify)
@@ -15720,126 +15557,6 @@ var $$IMU_EXPORT$$;
 			.replace(/\s+/g, " ")
 			.replace(/^\s+|\s+$/g, "");
 	}
-	var check_updates_firefox = function(cb) {
-		do_request({
-			url: firefox_addon_page,
-			method: "GET",
-			onload: function(resp) {
-				if (resp.readyState < 4)
-					return;
-				if (resp.status !== 200)
-					return cb(null);
-				var match = resp.responseText.match(/<script[^>]*id=["']redux-store-state["']\s*>\s*({.*?})\s*<\/script>/);
-				if (!match) {
-					return cb(null);
-				}
-				try {
-					var json = JSON_parse(match[1]);
-					var addoninfo = json.addons.byID["1003321"];
-					var versionid = addoninfo.currentVersionId;
-					var versioninfo = json.versions.byId[versionid];
-					var version = versioninfo.version;
-					var downloadurl = versioninfo.platformFiles.all.url.replace(/\?src=.*/, "?src=external-updatecheck");
-					cb({
-						version: version,
-						downloadurl: downloadurl
-					});
-				} catch (e) {
-					console_error("Unable to parse mozilla addon info", e);
-					return cb(null);
-				}
-			}
-		});
-	};
-	var check_updates_github = function(cb) {
-		do_request({
-			url: "https://api.github.com/repos/qsniyg/maxurl/tags",
-			method: "GET",
-			headers: {
-				Referer: ""
-			},
-			onload: function(resp) {
-				if (resp.readyState < 4)
-					return;
-				if (resp.status !== 200)
-					return cb(null);
-				try {
-					var json = JSON_parse(resp.responseText);
-					for (var i = 0; i < json.length; i++) {
-						var version = json[i].name;
-						if (!version.match(/^v[0-9.]+$/)) {
-							continue;
-						}
-						return cb({
-							version: version.replace(/^v([0-9])/, "$1")
-						});
-					}
-				} catch (e) {
-					console_error("Unable to parse github info", e);
-				}
-				return cb(null);
-			}
-		});
-	};
-	var check_updates = function(cb) {
-		if (false && is_firefox_webextension) {
-			check_updates_firefox(function(data) {
-				if (!data) {
-					check_updates_github(cb);
-				} else {
-					cb(data);
-				}
-			});
-		} else {
-			check_updates_github(cb);
-		}
-	};
-	var get_update_url = function() {
-		var link = settings.last_update_url;
-		if (!link) {
-			if (is_firefox_webextension) {
-				link = firefox_addon_page;
-			} else if (is_userscript) {
-				link = userscript_update_url;
-			} else {
-				link = null;
-			}
-		}
-		return link;
-	};
-	var check_updates_if_needed = function() {
-		if (!settings.imu_enabled || !settings.check_updates || !current_version || !settings.last_update_check) {
-			return;
-		}
-		var update_check_delta = Date.now() - settings.last_update_check;
-		if (update_check_delta > (settings.check_update_interval * 60 * 60 * 1000)) {
-			check_updates(function(data) {
-				update_setting("last_update_check", Date.now());
-				if (!data || !data.version)
-					return;
-				if (!data.downloadurl) {
-					update_setting("last_update_url", null);
-				} else {
-					update_setting("last_update_url", data.downloadurl);
-				}
-				update_setting("last_update_version", data.version);
-				if (settings.check_update_notify && !is_in_iframe && version_compare(current_version, data.version) === 1) {
-					var notify_obj = {
-						text: _("Update available (%%1)", data.version)
-					};
-					var downloadurl = get_update_url();
-					if (downloadurl) {
-						notify_obj.onclick = function() {
-							open_in_tab_imu({
-								url: downloadurl
-							});
-						};
-					}
-					do_notify(notify_obj);
-				}
-			});
-		}
-	};
 	function _fuzzy_compare_rollover(a, b, lim) {
 		if (a === b)
 			return true;
@@ -16364,16 +16081,6 @@ var $$IMU_EXPORT$$;
 		if (is_extension || is_userscript) {
 			lib_cache.fetch(name, cb, function(done) {
 				if (is_extension) {
-					extension_send_message({
-						type: "get_lib",
-						data: {
-							name: lib_obj.name
-						}
-					}, function(response) {
-						if (!response || !response.data || !response.data.text)
-							return done(null, 0); // 0 instead of false because it will never be available
-						done(run_sandboxed_lib(response.data.text, lib_obj.xhr), 0);
-					});
 				} else {
 					var lib_url = lib_obj.url;
 					if (!lib_url) {
@@ -19014,19 +18721,7 @@ var $$IMU_EXPORT$$;
 		return false;
 	};
 	var send_redirect = function(obj, cb, tabId) {
-		if (is_extension) {
-			extension_send_message({
-				type: "redirect",
-				data: {
-					obj: obj,
-					tabId: tabId
-				}
-			}, function() {
-				cb();
-			});
-		} else {
-			cb();
-		}
+		cb();		
 	};
 	var redirect = function(url, obj) {
 		if (_nir_debug_) {
@@ -19676,39 +19371,6 @@ var $$IMU_EXPORT$$;
 			document.documentElement.classList.remove("dark");
 		}
 	}
-	var request_permission = function(permission, cb) {
-		if (!is_extension)
-			return cb(false);
-		if (true) {
-			try {
-				chrome.permissions.request({
-					permissions: [permission]
-				}, function(granted) {
-					if (granted) {
-						extension_send_message({
-							type: "permission_handler",
-							data: {
-								permission: permission
-							}
-						});
-					}
-					cb(granted);
-				});
-			} catch (e) {
-				console_error(e);
-				cb(false);
-			}
-		} else {
-			extension_send_message({
-				type: "permission",
-				data: {
-					permission: permission
-				}
-			}, function(result) {
-				cb(result.data.granted);
-			});
-		}
-	};
 	var current_options_tab = "general";
 	if (is_interactive) {
 		var hash = window.location.hash;
@@ -19837,25 +19499,7 @@ var $$IMU_EXPORT$$;
 		};
 		set_saved_text(get_default_saved_text());
 		var saved_timeout = null;
-		var create_update_available = function() {
-			var update_available_el = document_createElement("div");
-			update_available_el.classList.add("update-available");
-			update_available_el.innerHTML = "Update available: v" + current_version + " -&gt; ";
-			var link = get_update_url();
-			if (link) {
-				update_available_el.innerHTML += "<a href=\"" + link + "\" target=\"_blank\" rel=\"noreferer\">v" + settings.last_update_version + "</a>";
-			} else {
-				update_available_el.innerHTML += "v" + settings.last_update_version;
-			}
-			return update_available_el;
-		};
-		if (settings.check_updates && version_compare(current_version, settings.last_update_version) === 1) {
-			options_el.appendChild(create_update_available());
-		}
 		var rules_failed_el = document.createElement("p");
-		if (set_require_rules_failed_el(rules_failed_el)) {
-			options_el.appendChild(rules_failed_el);
-		}
 		var topbtns_holder = document_createElement("div");
 		topbtns_holder.id = "topbtns";
 		options_el.appendChild(topbtns_holder);
@@ -20533,17 +20177,7 @@ var $$IMU_EXPORT$$;
 				show_saved_message(meta);
 			};
 			var do_update_setting = function(setting, new_value, meta) {
-				if (is_extension && meta.required_permission) {
-					request_permission(meta.required_permission, function(granted) {
-						if (granted) {
-							do_update_setting_real(setting, new_value, meta);
-						} else {
-							do_options();
-						}
-					});
-				} else {
-					do_update_setting_real(setting, new_value, meta);
-				}
+				do_update_setting_real(setting, new_value, meta);
 			};
 			name_td.appendChild(name);
 			check_value_orig_different(value);
@@ -21139,18 +20773,7 @@ var $$IMU_EXPORT$$;
 		return JSON_stringify(value);
 	}
 	function get_values(keys, cb) {
-		if (is_extension) {
-			extension_send_message({
-				type: "getvalue",
-				data: keys
-			}, function(response) {
-				response = response.data;
-				obj_foreach(response, function(key, value) {
-					response[key] = parse_value(value);
-				});
-				cb(response);
-			});
-		} else if (typeof GM_getValue !== "undefined" &&
+		if (typeof GM_getValue !== "undefined" &&
 			userscript_manager !== "FireMonkey") {
 			var response = {};
 			array_foreach(keys, function(key) {
@@ -21188,18 +20811,7 @@ var $$IMU_EXPORT$$;
 			settings_meta[key].onedit(value);
 		}
 		value = serialize_value(value);
-		if (is_extension) {
-			var kv = {};
-			kv[key] = value;
-			updating_options++;
-			extension_send_message({
-				type: "setvalue",
-				data: kv
-			}, function() {
-				updating_options--;
-				cb && cb();
-			});
-		} else if (typeof GM_setValue !== "undefined") {
+		if (typeof GM_setValue !== "undefined") {
 			GM_setValue(key, value);
 			cb && cb();
 		} else if (typeof GM !== "undefined" && GM.setValue) {
@@ -21215,11 +20827,6 @@ var $$IMU_EXPORT$$;
 			return false;
 		value = deepcopy(value);
 		settings[key] = value;
-		if (is_extension) {
-			if (!(key in settings_history))
-				settings_history[key] = [];
-			settings_history[key].push(value);
-		}
 		set_value(key, value);
 		return true;
 	}
@@ -21422,7 +21029,6 @@ var $$IMU_EXPORT$$;
 		if (!settings.last_update_check) {
 			update_setting("last_update_check", Date.now());
 		}
-		check_updates_if_needed();
 		get_value("settings_version", function(version) {
 			upgrade_settings_with_version(version, settings, cb);
 		});
@@ -21859,22 +21465,7 @@ var $$IMU_EXPORT$$;
 			el.src = src;
 		};
 		var is_incomplete = typeof src === "string" && /^https?:\/\//i.test(src);
-		if (is_extension && is_incomplete) {
-			extension_send_message({
-				type: "override_next_headers",
-				data: {
-					url: src,
-					method: "GET",
-					headers: info_obj.headers,
-					anonymous: el.getAttribute("crossorigin") === "anonymous",
-					content_type: info_obj.content_type || null
-				}
-			}, function() {
-				set_src(el, src);
-			});
-		} else {
-			set_src(el, src);
-		}
+		set_src(el, src);
 	};
 	var create_media_el = function(obj, type, processing, good_cb, err_cb) {
 		if (type === "image") {
@@ -23860,16 +23451,6 @@ var $$IMU_EXPORT$$;
 				];
 			}
 		}
-		function add_link_to_history(link) {
-			if (is_extension) {
-				extension_send_message({
-					type: "add_to_history",
-					data: {
-						url: link
-					}
-				});
-			}
-		}
 		var parse_format = function(formatstr) {
 			var segments = [];
 			var push_segment = function() {
@@ -24310,9 +23891,6 @@ var $$IMU_EXPORT$$;
 		function makePopup(obj, orig_url, processing, data) {
 			if (_nir_debug_) {
 				console_log("makePopup", obj, orig_url, processing, data);
-			}
-			if (settings.mouseover_add_to_history) {
-				add_link_to_history(data.data.obj.url);
 			}
 			var openb = get_tprofile_single_setting("mouseover_open_behavior");
 			if (openb === "newtab" || openb === "newtab_bg" || openb === "download" || openb === "copylink" || openb === "replace") {
@@ -28275,20 +27853,7 @@ var $$IMU_EXPORT$$;
 						cb();
 					}
 				};
-				if (is_extension) {
-					extension_send_message({
-						type: "override_next_headers",
-						data: {
-							url: data.data.obj.url,
-							headers: data.data.obj.headers,
-							method: "GET"
-						}
-					}, function() {
-						load_image();
-					});
-				} else {
-					load_image();
-				}
+				load_image();
 				waiting = true;
 			}
 			if (!waiting)
@@ -29731,11 +29296,6 @@ var $$IMU_EXPORT$$;
 			if (event_cache.has(event_cache_key)) {
 				return do_event_return(event, event_cache.get(event_cache_key));
 			}
-			if (is_extension && settings.extension_contextmenu && event.type === "mousedown") {
-				if (trigger_complete(["shift", "button2"])) {
-					update_contextmenu_pos(event);
-				}
-			}
 			if (settings.mouseover) {
 				if (get_single_setting("mouseover_trigger_behavior") === "keyboard") {
 					var triggers = [settings.mouseover_trigger_key];
@@ -30215,42 +29775,14 @@ var $$IMU_EXPORT$$;
 			}
 			return false;
 		};
-		if (is_extension) {
-			chrome.runtime.onMessage.addListener(function(message, sender, respond) {
-				if (_nir_debug_) {
-					console_log("chrome.runtime.onMessage", message);
-				}
-				if (message.type === "context_imu") {
-					if (mouse_frame_id !== current_frame_id)
-						return;
-					popup_trigger_reason = "contextmenu";
-					trigger_popup({ is_contextmenu: true });
-				} else if (message.type === "popupaction") {
-					if (message.data.action === "replace_images") {
-						replace_images_full();
-					} else if (message.data.action === "highlight_images") {
-						highlight_images();
-					}
-				} else if (message.type === "remote" || message.type === "remote_reply") {
-					handle_remote_event(message);
-				} else if (message.type === "suspend") {
-					set_terminated(true);
-				} else if (message.type === "unsuspend") {
-					set_terminated(false);
-				} else {
-					general_extension_message_handler(message, sender, respond);
-				}
-			});
-		} else {
-			our_addEventListener(get_window(), "message", function(event) {
-				if (_nir_debug_) {
-					console_log("window.onMessage", event);
-				}
-				if (!can_use_remote() || !event.data || typeof event.data !== "object" || !(imu_message_key in event.data))
-					return;
-				handle_remote_event(event.data[imu_message_key]);
-			}, false);
-		}
+		our_addEventListener(get_window(), "message", function(event) {
+			if (_nir_debug_) {
+				console_log("window.onMessage", event);
+			}
+			if (!can_use_remote() || !event.data || typeof event.data !== "object" || !(imu_message_key in event.data))
+				return;
+			handle_remote_event(event.data[imu_message_key]);
+		}, false);
 		our_addEventListener(document, 'contextmenu', update_contextmenu_pos);
 		var last_remote_mousemove = 0;
 		var last_remote_mousemove_timer = null;
@@ -30521,177 +30053,6 @@ var $$IMU_EXPORT$$;
 			}
 		};
 	}
-	var set_require_rules_failed_el = function(el) {
-		if (!require_rules_failed)
-			return false;
-		el.style.color = "#ff3333";
-		el.innerText = "Error: Rules cannot be loaded.\nPlease either try reinstalling the script, or ";
-		var github_link = document.createElement("a");
-		github_link.href = userscript_update_url;
-		github_link.target = "_blank";
-		github_link.innerText = "install the github version";
-		el.appendChild(github_link);
-		var reason_el = document.createElement("p");
-		reason_el.innerText = "Error reason:";
-		reason_el.style.color = "#000";
-		reason_el.style.marginTop = "1em";
-		reason_el.style.marginBottom = "1em";
-		try {
-			var error_message = document.createElement("pre");
-			error_message.style.color = "#000";
-			error_message.innerText = require_rules_failed.message;
-			el.appendChild(reason_el);
-			el.appendChild(error_message);
-		} catch (e) {
-			console_error(e);
-		}
-		return true;
-	};
-	var do_userscript_page = function(imgel, latest_version) {
-		var status_container_el = document_createElement("div");
-		status_container_el.style.marginBottom = "2em";
-		var version_el = document_createElement("span");
-		version_el.style.fontSize = "90%";
-		version_el.style.fontWeight = 800;
-		version_el.style.marginRight = "2em";
-		var options_el;
-		var version = null;
-		try {
-			version = gm_info.script.version;
-		} catch (e) {
-		}
-		if (!set_require_rules_failed_el(version_el)) {
-			version_el.innerText = "Installed";
-			if (version !== null) {
-				version_el.innerText += " (v" + version;
-				if (latest_version) {
-					var compared = version_compare(latest_version, version);
-					if (compared === -1) {
-						version_el.innerText += ", update available";
-					}
-				}
-				version_el.innerText += ")";
-			}
-			options_el = document_createElement("a");
-			options_el.innerText = "Options";
-			options_el.style.background = "#0af";
-			options_el.style.padding = "0.5em 1em";
-			options_el.style.color = "white";
-			options_el.style.display = "inline-block";
-			options_el.style.textDecoration = "none";
-			options_el.target = "_blank";
-			options_el.href = "https://qsniyg.github.io/maxurl/options.html";
-		}
-		status_container_el.appendChild(version_el);
-		if (!require_rules_failed)
-			status_container_el.appendChild(options_el);
-		imgel.parentElement.appendChild(status_container_el);
-	};
-	var do_greasyfork_page = function() {
-		var imgel = document.querySelector("div.script-author-description > center > img[alt='Image Max URL']");
-		if (!imgel)
-			imgel = document.querySelector("#additional-info > center > img[alt='Image Max URL']");
-		if (!imgel)
-			return;
-		if (imgel.parentElement.previousElementSibling ||
-			imgel.parentElement.nextElementSibling.tagName !== "UL")
-			return;
-		var gf_version = null;
-		var gf_version_el = document.querySelector("dd.script-show-version");
-		if (gf_version_el) {
-			gf_version = gf_version_el.innerText.replace(/^\s*|\s*$/, "");
-		}
-		do_userscript_page(imgel, gf_version);
-	};
-	var do_oujs_page = function() {
-		var imgel = document.querySelector("div#user-content > p[align='center'] img[alt='Image Max URL']");
-		if (!imgel)
-			return;
-		if ((imgel.parentElement.previousElementSibling && imgel.parentElement.previousElementSibling.tagName !== "HR") ||
-			imgel.parentElement.nextElementSibling.tagName !== "UL")
-			return;
-		var latest_version = null;
-		var version_icon_el = document.querySelector("div.script-meta i.fa-history");
-		if (version_icon_el) {
-			var code_el = version_icon_el.parentElement.querySelector("code");
-			if (code_el) {
-				latest_version = code_el.innerText.replace(/[+].*/, "");
-				if (!/^[0-9.]+$/.test(latest_version))
-					latest_version = null;
-			}
-		}
-		do_userscript_page(imgel, latest_version);
-	};
-	var parse_node_args = function(args_info) {
-		var parsed = { _positional: [] };
-		for (var i = 2; i < process.argv.length; i++) {
-			var arg = process.argv[i];
-			if (arg[0] !== '-') {
-				parsed["_positional"].push(arg);
-				continue;
-			}
-			if (arg === '--') {
-				array_extend(parsed._positional, process.argv.slice(i + 1));
-				break;
-			}
-			var shortarg = null;
-			var longarg = null;
-			var argval = null;
-			if (arg[1] === '-') {
-				longarg = arg.substr(2);
-			} else {
-				shortarg = arg.substr(1);
-			}
-			var our_arg = null;
-			for (var _i = 0, args_info_1 = args_info; _i < args_info_1.length; _i++) {
-				var arg_info = args_info_1[_i];
-				if (shortarg) {
-					if (arg_info.short === shortarg) {
-						our_arg = arg_info;
-						break;
-					}
-				}
-				if (longarg) {
-					if (arg_info.long === longarg) {
-						our_arg = arg_info;
-						break;
-					}
-				}
-			}
-			if (!our_arg) {
-				console.error("Unable to find argument:", process.argv[i]);
-				return null;
-			}
-			if (our_arg.needs_arg) {
-				i++;
-				if (i >= process.argv.length) {
-					console.error("Argument", process.argv[i - 1], "needs an argument");
-					return null;
-				}
-				argval = process.argv[i];
-			} else {
-				argval = true;
-			}
-			parsed[our_arg.name] = argval;
-		}
-		return parsed;
-	};
-	var do_node_main = function() {
-		var parsed = parse_node_args({});
-		if (!parsed)
-			return;
-		if (!parsed._positional.length) {
-			console.error("Usage:", process.argv[0], process.argv[1], "url");
-			return;
-		}
-		var url = parsed._positional[0];
-		bigimage_recursive(url, {
-			fill_object: true,
-			cb: function(obj) {
-				console.log(JSON_stringify(obj, null, '\t'));
-			}
-		});
-	};
 	function start() {
 		do_export();
 		if (is_interactive) {
@@ -30733,27 +30094,7 @@ var $$IMU_EXPORT$$;
 					}
 				}
 			}
-			if (is_userscript) {
-				if (window.location.href.match(/^https?:\/\/(?:www\.)?greasyfork\.org\/+[^/]*\/+scripts\/+36662(?:-[^/]*)?(?:[?#].*)?$/)) {
-					onload(function() {
-						do_greasyfork_page();
-					});
-				} else if (window.location.href.match(/^https?:\/\/(?:www\.)?openuserjs\.org\/+scripts\/+qsniyg\/+Image_Max_URL(?:[?#].*)?$/)) {
-					onload(function() {
-						do_oujs_page();
-					});
-				}
-			}
 			do_mouseover();
-			if (is_extension) {
-				extension_send_message({
-					type: "ready"
-				});
-			}
-		} else if (is_extension_bg) {
-			imu_userscript_message_sender = general_extension_message_handler;
-		} else if (is_node_main) {
-			do_node_main();
 		}
 	}
 	if (_nir_debug_)
