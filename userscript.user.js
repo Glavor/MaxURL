@@ -47,20 +47,6 @@
 var $$IMU_EXPORT$$;
 (function() {
 	var _nir_debug_ = false;
-	if (_nir_debug_) {
-		_nir_debug_ = {
-			no_request: false,
-			no_recurse: false,
-			no_redirect: true,
-			map: true,
-			cache: true,
-			bigimage_recursive: true,
-			input: true,
-			check_image_get: true,
-			find_source: true
-		};
-		console.log("Loaded");
-	}
 	var nullfunc = function() { };
 	var is_extension = false;
 	var is_webextension = false;
@@ -68,7 +54,6 @@ var $$IMU_EXPORT$$;
 	var extension_error_handler = function(context) { };
 	var extension_options_page = null;
 	var is_terminated = false;
-	var is_extension_options_page = false;
 	var is_options_page = false;
 	var is_maxurl_website = false;
 	var window_location = null;
@@ -95,21 +80,11 @@ var $$IMU_EXPORT$$;
 		else
 			return raw_window;
 	};
-	var termination_hooks = [];
 	var is_suspended = function(full) {
 		if (is_terminated || !settings.imu_enabled) {
 			return true;
 		}
 		return false;
-	};
-	var set_terminated = function(terminated) {
-		var was_terminated = is_terminated;
-		is_terminated = terminated;
-		if (terminated && !was_terminated) {
-			array_foreach(termination_hooks, function(hook) {
-				hook();
-			});
-		}
 	};
 	try {
 		window_location = window.location.href;
@@ -173,9 +148,6 @@ var $$IMU_EXPORT$$;
 			userscript_manager = "FireMonkey";
 			gm_info = { scriptHandler: userscript_manager };
 		}
-		if (_nir_debug_ && false) {
-			console.log("GM_info", gm_info);
-		}
 		try {
 			current_version = gm_info.script.version;
 		} catch (e) {
@@ -223,22 +195,6 @@ var $$IMU_EXPORT$$;
 			args[_i] = arguments[_i];
 		}
 	};
-	if (_nir_debug_) {
-		nir_debug = function() {
-			var _args = [];
-			for (var _i = 0; _i < arguments.length; _i++) {
-				_args[_i] = arguments[_i];
-			}
-			var channel = arguments[0];
-			if (!_nir_debug_[channel])
-				return;
-			var args = [];
-			for (var i = 1; i < arguments.length; i++) {
-				args.push(arguments[i]);
-			}
-			console_log.apply(this, args);
-		};
-	}
 	var JSON_stringify;
 	var JSON_parse = JSON.parse;
 	var parse_int = function(x) {
@@ -1093,9 +1049,6 @@ var $$IMU_EXPORT$$;
 			if (to && to in id_to_iframe) {
 				specified_window = id_to_iframe_window(to);
 				if (!specified_window) {
-					if (_nir_debug_) {
-						console_warn("Unable to find window for", to, { is_in_iframe: is_in_iframe, id_to_iframe: id_to_iframe });
-					}
 					return;
 				}
 			}
@@ -1107,9 +1060,6 @@ var $$IMU_EXPORT$$;
 					try {
 						window.frames[i].postMessage(wrapped_message, "*");
 					} catch (e) {
-						if (_nir_debug_) {
-							console_warn("Unable to send message to", window.frames[i], e);
-						}
 						continue;
 					}
 				}
@@ -1140,9 +1090,6 @@ var $$IMU_EXPORT$$;
 				from: current_frame_id,
 				response_id: id
 			};
-			if (_nir_debug_) {
-				console_log("remote_send_message", to, message);
-			}
 			raw_remote_send_message(to, message);
 		};
 		remote_send_reply = function(to, response_id, data) {
@@ -1160,9 +1107,6 @@ var $$IMU_EXPORT$$;
 		return can_use_remote() && settings.mouseover_use_remote;
 	};
 	var do_request_browser = function(request) {
-		if (_nir_debug_) {
-			console_log("do_request_browser", request);
-		}
 		var method = request.method || "GET";
 		var xhr = new XMLHttpRequest();
 		xhr.open(method, request.url, true);
@@ -1176,9 +1120,6 @@ var $$IMU_EXPORT$$;
 			});
 		}
 		var do_final = function(override, cb) {
-			if (_nir_debug_) {
-				console_log("do_request_browser's do_final", xhr, cb);
-			}
 			var resp = {
 				readyState: xhr.readyState,
 				finalUrl: xhr.responseURL,
@@ -1338,9 +1279,6 @@ var $$IMU_EXPORT$$;
 	var do_request = null;
 	if (do_request_raw) {
 		do_request = function(data) {
-			if (_nir_debug_) {
-				console_log("do_request", deepcopy(data));
-			}
 			if (!("withCredentials" in data)) {
 				data.withCredentials = true;
 			}
@@ -1414,9 +1352,6 @@ var $$IMU_EXPORT$$;
 					var real_onload_503 = data.onload;
 					var real_onerror_503 = data.onerror;
 					var finalcb_503 = function(resp, iserror) {
-						if (_nir_debug_) {
-							console_log("do_request's finalcb_503:", resp, iserror, deepcopy(data));
-						}
 						if (resp.status === 503) {
 							console_warn("Received status 503, retrying request", resp, orig_data);
 							orig_data.retry_503 = data.retry_503 - 1;
@@ -1443,9 +1378,6 @@ var $$IMU_EXPORT$$;
 				var real_onload = data.onload;
 				var real_onerror = data.onerror;
 				var finalcb = function(resp, iserror) {
-					if (_nir_debug_) {
-						console_log("do_request's finalcb:", resp, iserror);
-					}
 					if (check_tracking_blocked(resp)) {
 						data.onload = null;
 						data.onerror = null;
@@ -1476,9 +1408,6 @@ var $$IMU_EXPORT$$;
 					data.onload = function(resp) {
 						var newresp = resp;
 						var final = function() {
-							if (_nir_debug_) {
-								console_log("do_request's arraybuffer->blob:", deepcopy(resp), newresp);
-							}
 							real_onload(newresp);
 						};
 						if (resp.response) {
@@ -1506,9 +1435,6 @@ var $$IMU_EXPORT$$;
 				data.responseType = "arraybuffer";
 				data.imu_responseType = "blob";
 			}
-			if (_nir_debug_) {
-				console_log("do_request (modified data):", deepcopy(data));
-			}
 			return raw_request_do(data);
 		};
 	} else if (is_interactive) {
@@ -1521,9 +1447,6 @@ var $$IMU_EXPORT$$;
 		return filename;
 	};
 	var do_browser_download = function(imu, filename, cb) {
-		if (_nir_debug_) {
-			console_log("do_browser_download", imu, filename, cb);
-		}
 		var a = document_createElement("a");
 		a.href = imu.url;
 		if (filename && filename.length > 0) {
@@ -1547,9 +1470,6 @@ var $$IMU_EXPORT$$;
 			cb();
 	};
 	var do_download = function(imu, filename, size, cb) {
-		if (true || _nir_debug_) {
-			console_log("do_download", imu, filename, size, cb);
-		}
 		if (false) {
 			request_chunked(imu, {
 				onload: function(data) {
@@ -1603,9 +1523,6 @@ var $$IMU_EXPORT$$;
 				download_obj["name"] = fixup_filename(filename);
 			} else {
 				download_obj["name"] = "download"; // it can't be blank
-			}
-			if (_nir_debug_) {
-				console_log("GM_download", deepcopy(download_obj));
 			}
 			GM_download(download_obj);
 		} else {
@@ -1878,8 +1795,6 @@ var $$IMU_EXPORT$$;
 	var browser_clipboard_api_write = null;
 	if (is_interactive) {
 		browser_clipboard_write = function(data, cb) {
-			if (_nir_debug_)
-				console_log("clipboard_write execcommand", data);
 			var input = document.createElement("textarea");
 			input.style.height = "1px";
 			input.style.width = "1px";
@@ -1901,8 +1816,6 @@ var $$IMU_EXPORT$$;
 		};
 		if (navigator.clipboard && (navigator.clipboard.write || navigator.clipboard.writeText)) {
 			browser_clipboard_api_write = function(data, cb) {
-				if (_nir_debug_)
-					console_log("clipboard_write clipboard_api", data);
 				var promise;
 				var can_use_writetext = data.mime === "text/plain" && navigator.clipboard.writeText;
 				if (!can_use_writetext && navigator.clipboard.write && typeof ClipboardItem === "function") {
@@ -15720,8 +15633,6 @@ var $$IMU_EXPORT$$;
 				headers.push({ name: header_name, value: value_split[j] });
 			}
 		}
-		if (_nir_debug_)
-			console_log("parse_headers", headerstr, deepcopy(headers));
 		return headers;
 	};
 	var headers_list_to_dict = function(headers) {
@@ -15747,8 +15658,6 @@ var $$IMU_EXPORT$$;
 			cookies[match[1]] = match[2];
 			cookieheader = match[3];
 		} while (cookieheader);
-		if (_nir_debug_)
-			console_log("parse_cookieheader", cookieheader, deepcopy(cookies));
 		return cookies;
 	};
 	var create_cookieheader_from_headers = function(headers, cookieheader) {
@@ -15764,8 +15673,6 @@ var $$IMU_EXPORT$$;
 			}
 			cookies[cookie_match[1]] = cookie_match[2];
 		}
-		if (_nir_debug_)
-			console_log("create_cookieheader_from_headers", headers, cookieheader, deepcopy(cookies));
 		if (cookieheader) {
 			var parsed = parse_cookieheader(cookieheader);
 			for (var key in parsed) {
@@ -17325,9 +17232,6 @@ var $$IMU_EXPORT$$;
 				}, cb, function(done, resp, cache_key) {
 					console_log(resp);
 					var item = resp.data.children[0].data;
-					if (_nir_debug_) {
-						console_log(id, item);
-					}
 					done(item, 60 * 60);
 				});
 			};
@@ -18283,9 +18187,6 @@ var $$IMU_EXPORT$$;
 			}
 			if (objified[0].norecurse)
 				return false;
-			if (_nir_debug_ && _nir_debug_.no_recurse) {
-				return false;
-			}
 			return true;
 		};
 		var do_bigimage = function() {
@@ -18480,10 +18381,6 @@ var $$IMU_EXPORT$$;
 		for (var option in options) {
 			if (option === "cb") {
 				newoptions.cb = function(obj) {
-					if (_nir_debug_) {
-						console_log("bigimage_recursive_loop's cb: obj:", deepcopy(obj));
-						console_log("bigimage_recursive_loop's cb: oldobj:", deepcopy(oldobj));
-					}
 					obj = obj_merge(obj, oldobj);
 					var images = obj_to_simplelist(obj);
 					for (var i = 0; i < obj.length; i++) {
@@ -18511,19 +18408,10 @@ var $$IMU_EXPORT$$;
 							}
 						}
 					}
-					if (_nir_debug_) {
-						console_log("bigimage_recursive_loop's cb: obj after:", deepcopy(obj));
-						console_log("bigimage_recursive_loop's cb: images after:", deepcopy(images));
-						console_log("bigimage_recursive_loop's cb: fine_urls:", deepcopy(fine_urls));
-						console_log("bigimage_recursive_loop's cb: tried_urls:", deepcopy(tried_urls));
-					}
 					for (var i = 0; i < fine_urls.length; i++) {
 						var index = array_indexof(images, fine_urls[i].url);
 						if (index >= 0) {
 							obj = [obj[index]];
-							if (_nir_debug_) {
-								console_log("bigimage_recursive_loop's cb: returning fine_url", deepcopy(obj), deepcopy(fine_urls[i]));
-							}
 							return options.cb(obj, fine_urls[i].data);
 						}
 					}
@@ -18537,29 +18425,14 @@ var $$IMU_EXPORT$$;
 							var index = array_indexof(images, tried_urls[i].newurl);
 							if (index >= 0) {
 								obj = [obj[index]];
-								if (_nir_debug_) {
-									console_log("bigimage_recursive_loop's cb: returning tried_url", deepcopy(obj), deepcopy(tried_urls[i]), try_any);
-								}
 								return options.cb(obj, tried_urls[i].data);
 							} else {
-								if (_nir_debug_) {
-									console_log("bigimage_recursive_loop's cb: returning null tried_url", deepcopy(tried_urls[i]), try_any);
-								}
 								return options.cb(null, tried_urls[i].data);
 							}
 						}
 					}
-					if (_nir_debug_) {
-						console_log("bigimage_recursive_loop: about to query", deepcopy(obj));
-					}
 					query(obj, function(newurl, newobj, data) {
-						if (_nir_debug_) {
-							console_log("bigimage_recursive_loop (query: newurl, newobj, data):", deepcopy(newurl), deepcopy(newobj), data);
-						}
 						if (!newurl) {
-							if (_nir_debug_) {
-								console_log("bigimage_recursive_loop (query): returning null", data);
-							}
 							return options.cb(null, data);
 						}
 						fine_urls.push({
@@ -18578,9 +18451,6 @@ var $$IMU_EXPORT$$;
 							bigimage_recursive_loop(newurl, options, query, fine_urls, tried_urls, obj);
 						} else {
 							obj = [obj[newurl_index]];
-							if (_nir_debug_) {
-								console_log("bigimage_recursive_loop (query): returning", deepcopy(obj), data);
-							}
 							options.cb(obj, data);
 						}
 					});
@@ -18588,9 +18458,6 @@ var $$IMU_EXPORT$$;
 			} else {
 				newoptions[option] = options[option];
 			}
-		}
-		if (_nir_debug_) {
-			console_log("bigimage_recursive_loop", url, deepcopy(options), query, deepcopy(fine_urls), deepcopy(tried_urls), deepcopy(oldobj));
 		}
 		return bigimage_recursive(url, newoptions);
 	};
@@ -18724,11 +18591,6 @@ var $$IMU_EXPORT$$;
 		cb();		
 	};
 	var redirect = function(url, obj) {
-		if (_nir_debug_) {
-			console_log("redirect", url, obj);
-		}
-		if (_nir_debug_ && _nir_debug_.no_redirect)
-			return;
 		if (url === window.location.href)
 			return;
 		try {
@@ -18864,8 +18726,6 @@ var $$IMU_EXPORT$$;
 		return size.toFixed(2).replace(/\.00$/, "") + sizes[0] + "B";
 	};
 	var check_image = function(obj, page_url, err_cb, ok_cb, no_infobox) {
-		if (_nir_debug_)
-			console_log("check_image", deepcopy(obj), page_url, no_infobox);
 		if (is_array(obj)) {
 			obj = obj[0];
 		}
@@ -18893,8 +18753,6 @@ var $$IMU_EXPORT$$;
 		var err_txt;
 		if (url === page_url) {
 			print_orig();
-			if (_nir_debug_)
-				console_log("(check_image) url == page_url", url, page_url);
 			ok_cb(url);
 		} else {
 			var headers = obj.headers;
@@ -18950,7 +18808,7 @@ var $$IMU_EXPORT$$;
 					console_error(e);
 				}
 			};
-			if (!_nir_debug_ || !_nir_debug_.no_request) {
+			if (true) {
 				if (is_interactive)
 					cursor_wait();
 				var url_domain = url.replace(/^([a-z]+:\/\/[^/]*).*?$/, "$1");
@@ -18992,19 +18850,12 @@ var $$IMU_EXPORT$$;
 					mouseover_text("custom headers");
 					return;
 				}
-				if (_nir_debug_)
-					console_log("(check_image) headers", headers);
 				if (obj.always_ok ||
 					(!obj.can_head && !settings.canhead_get)) {
-					if (_nir_debug_) {
-						console_log("(check_image) always_ok || !can_head", url, deepcopy(obj));
-					}
 					return ok_cb(url);
 				}
 				var method = "HEAD";
 				if (!obj.can_head && settings.canhead_get) {
-					if (_nir_debug_)
-						console_log("Trying GET");
 					method = "GET";
 				}
 				var handled = false;
@@ -19012,8 +18863,6 @@ var $$IMU_EXPORT$$;
 					if (handled)
 						return;
 					handled = true;
-					if (_nir_debug_)
-						console_log("(check_image) resp", resp);
 					if (is_userscript && userscript_manager === "FireMonkey" && !resp) {
 						err_txt = "Error: resp == null (tracking protection blocked, FireMonkey bug)";
 						if (err_cb) {
@@ -19052,8 +18901,6 @@ var $$IMU_EXPORT$$;
 					}
 					var headers_list = parse_headers(resp.responseHeaders);
 					var headers = headers_list_to_dict(headers_list);
-					if (_nir_debug_)
-						console_log("(check_image) resp headers", headers);
 					var digit = resp.status.toString()[0];
 					var ok_error = check_ok_error(obj.head_ok_errors, resp.status);
 					if (((digit === "4" || digit === "5") &&
@@ -19101,9 +18948,6 @@ var $$IMU_EXPORT$$;
 						return err_cb("bad image");
 					}
 					if (!customheaders || is_extension) {
-						if (_nir_debug_) {
-							console_log("(check_image) finalUrl", resp.finalUrl || url, resp, deepcopy(obj));
-						}
 						ok_cb(resp.finalUrl || url);
 					} else {
 						console_log("Custom headers needed, currently unhandled");
@@ -19147,9 +18991,6 @@ var $$IMU_EXPORT$$;
 			fill_object: true,
 			force_page: force_page,
 			cb: function(newhref) {
-				if (_nir_debug_) {
-					console_log("do_redirect (final)", newhref);
-				}
 				cursor_default();
 				if (!newhref) {
 					return;
@@ -19164,8 +19005,6 @@ var $$IMU_EXPORT$$;
 					return;
 				if (!newurl)
 					return;
-				if (_nir_debug_)
-					console_log("redirect (recursive loop)", newhref);
 				redirect(newurl, newhref);
 			}
 		};
@@ -19174,9 +19013,6 @@ var $$IMU_EXPORT$$;
 			bigimage_obj.window = get_window();
 		}
 		bigimage_recursive_loop(page_url, bigimage_obj, function(newhref, real_finalcb) {
-			if (_nir_debug_) {
-				console_log("do_redirect", newhref);
-			}
 			var currentobj = null;
 			var finalcb = function(newurl, data, newobj) {
 				real_finalcb(newurl, newobj || currentobj, data);
@@ -19186,9 +19022,6 @@ var $$IMU_EXPORT$$;
 				if (newurl === window.location.href) {
 					cursor_default();
 					return;
-				}
-				if (_nir_debug_) {
-					console_log("Not checking due to can_head == false || always_ok == true");
 				}
 				finalcb(newurl);
 				return;
@@ -19210,9 +19043,6 @@ var $$IMU_EXPORT$$;
 			var use_infobox = false;
 			var index = 0;
 			var cb = function(err_txt, is_infobox) {
-				if (_nir_debug_) {
-					console_log("do_redirect_sub's err_cb:", err_txt, is_infobox);
-				}
 				if (is_infobox)
 					infobox_urls.push(new_newhref[index]);
 				index++;
@@ -19470,11 +19300,9 @@ var $$IMU_EXPORT$$;
 		var options_el_real = document.getElementById("options");
 		options_el_real.textContent = "";
 		var options_el = document.createDocumentFragment();
-		if (!is_extension_options_page) {
-			var options_header_el = document_createElement("h1");
-			options_header_el.textContent = _("options_header");
-			options_el.appendChild(options_header_el);
-		}
+		var options_header_el = document_createElement("h1");
+		options_header_el.textContent = _("options_header");
+		options_el.appendChild(options_header_el);
 		var saved_el = document.getElementById("saved");
 		if (!saved_el) {
 			saved_el = document_createElement("div");
@@ -21047,9 +20875,6 @@ var $$IMU_EXPORT$$;
 		return false;
 	}
 	function do_config() {
-		if (_nir_debug_) {
-			console_log("do_config");
-		}
 		if (is_userscript || is_extension) {
 			var settings_done = 0;
 			var total_settings = Object.keys(settings).length + old_settings_keys.length;
@@ -21105,11 +20930,7 @@ var $$IMU_EXPORT$$;
 		el.style.setProperty("transition-duration", "0s", "important");
 	}
 	function check_bad_if(badif, resp) {
-		if (_nir_debug_)
-			console_log("check_bad_if", badif, resp);
 		if (!badif || !is_array(badif) || badif.length === 0) {
-			if (_nir_debug_)
-				console_log("check_bad_if (!badif)");
 			return false;
 		}
 		var headers = parse_headers(resp.responseHeaders);
@@ -21349,8 +21170,6 @@ var $$IMU_EXPORT$$;
 		return null;
 	};
 	var destroy_image = function(image) {
-		if (_nir_debug_)
-			console_log("destroy_image", image);
 		revoke_objecturl(image.src);
 		image.setAttribute("imu-destroyed", "true");
 	};
@@ -21438,15 +21257,11 @@ var $$IMU_EXPORT$$;
 		img.onload = function() {
 			end_cbs();
 			if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-				if (_nir_debug_)
-					console_log("naturalWidth or naturalHeight == 0", img);
 				return err_cb();
 			}
 			good_cb(img);
 		};
 		img.onerror = function(e) {
-			if (_nir_debug_)
-				console_log("Error loading image", img, e);
 			end_cbs();
 			err_cb();
 		};
@@ -21776,9 +21591,6 @@ var $$IMU_EXPORT$$;
 				return;
 			}
 			var loadcb = function(urldata) {
-				if (_nir_debug_) {
-					console_log("check_image_get's loadcb", urldata, media_info);
-				}
 				last_objecturl = urldata;
 				if (!urldata) {
 					return err_cb();
@@ -21980,17 +21792,11 @@ var $$IMU_EXPORT$$;
 		return keychord;
 	}
 	function general_extension_message_handler(message, sender, respond) {
-		if (_nir_debug_) {
-			console_log("general_extension_message_handler", message);
-		}
 		if (message.type === "settings_update") {
 			settings_updated_cb(message.data.changes);
 		} else if (message.type === "request") {
 			var response = message.data;
 			if (!(response.id in extension_requests)) {
-				if (_nir_debug_) {
-					console_log("Request ID " + response.id + " not in extension_requests");
-				}
 				return;
 			}
 			var request_final = function() {
@@ -22006,15 +21812,9 @@ var $$IMU_EXPORT$$;
 				for (var i = 0; i < events.length; i++) {
 					var event = events[i];
 					if (response.event === event && reqdata[event]) {
-						if (_nir_debug_) {
-							console_log("Running " + event + " for response", response);
-						}
 						reqdata[event](response.data);
 						handled = true;
 					}
-				}
-				if (_nir_debug_ && !handled) {
-					console_warn("No event handler for", response);
 				}
 				if (response.final) {
 					delete extension_requests[response.id];
@@ -22099,8 +21899,6 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	function do_mouseover() {
-		if (_nir_debug_)
-			console_log("do_mouseover ran");
 		var mouseover_base_enabled = function() {
 			if (!settings.imu_enabled)
 				return false;
@@ -22281,9 +22079,6 @@ var $$IMU_EXPORT$$;
 			start_waiting(el, "progress");
 		}
 		var stop_waiting = function() {
-			if (_nir_debug_) {
-				console_log("stop_waiting");
-			}
 			waiting = false;
 			if (!settings.mouseover_wait_use_el) {
 				if (waitingstyleel) {
@@ -22299,9 +22094,6 @@ var $$IMU_EXPORT$$;
 		}
 		var not_allowed_timer = null;
 		function cursor_not_allowed() {
-			if (_nir_debug_) {
-				console_log("cursor_not_allowed");
-			}
 			start_waiting(void 0, "not-allowed");
 			if (not_allowed_timer) {
 				clearTimeout(not_allowed_timer);
@@ -22380,9 +22172,6 @@ var $$IMU_EXPORT$$;
 		};
 		var removemask_timer = null;
 		function resetpopups(options) {
-			if (_nir_debug_) {
-				console_log("resetpopups(", options, ")");
-			}
 			if (!options) {
 				options = {};
 			}
@@ -22460,7 +22249,6 @@ var $$IMU_EXPORT$$;
 				delay_handle = null;
 			}
 		}
-		termination_hooks.push(resetpopups);
 		function get_viewport() {
 			if (window.visualViewport) {
 				return [
@@ -23889,9 +23677,6 @@ var $$IMU_EXPORT$$;
 			return add_filename_ext(formatted, format_vars);
 		};
 		function makePopup(obj, orig_url, processing, data) {
-			if (_nir_debug_) {
-				console_log("makePopup", obj, orig_url, processing, data);
-			}
 			var openb = get_tprofile_single_setting("mouseover_open_behavior");
 			if (openb === "newtab" || openb === "newtab_bg" || openb === "download" || openb === "copylink" || openb === "replace") {
 				stop_waiting();
@@ -26494,11 +26279,6 @@ var $$IMU_EXPORT$$;
 				var el = els[i];
 				addElement(el);
 			}
-			if (_nir_debug_) {
-				nir_debug("find_source", "_find_source (sources)", deepcopy(sources));
-				nir_debug("find_source", "_find_source (layers)", deepcopy(layers));
-				nir_debug("find_source", "_find_source (ok_els)", deepcopy(ok_els));
-			}
 			var activesources = [];
 			for (var i = 0; i < layers.length; i++) {
 				for (var j = 0; j < layers[i].length; j++) {
@@ -26930,8 +26710,6 @@ var $$IMU_EXPORT$$;
 				currenttab_is_image() && !imagetab_ok_override;
 		}
 		function find_els_at_point(xy, els, prev, zoom_cache) {
-			if (false && _nir_debug_)
-				console_log("find_els_at_point", deepcopy(xy), deepcopy(els), deepcopy(prev));
 			var first_run = false;
 			if (!prev) {
 				prev = new_set();
@@ -26950,9 +26728,6 @@ var $$IMU_EXPORT$$;
 			if (!els) {
 				els = document.elementsFromPoint(xy[0], xy[1]);
 				afterret = els;
-				if (_nir_debug_) {
-					console_log("find_els_at_point (elsfrompoint)", deepcopy(els));
-				}
 				if (els_mode === "simple")
 					return els;
 			}
@@ -27008,9 +26783,6 @@ var $$IMU_EXPORT$$;
 				if (array_indexof(ret, afterret[i]) < 0)
 					ret.push(afterret[i]);
 			}
-			if (_nir_debug_ && ret.length > 0) {
-				console_log("find_els_at_point (unsorted ret)", shallowcopy(ret));
-			}
 			if (first_run && els_mode === "hybrid") {
 				return ret;
 			}
@@ -27060,8 +26832,6 @@ var $$IMU_EXPORT$$;
 					return b_zindex - a_zindex;
 				}
 			});
-			if (_nir_debug_ && ret.length > 0)
-				console_log("find_els_at_point (ret)", els, shallowcopy(ret), xy);
 			return ret;
 		}
 		var get_physical_popup_el = function(el) {
@@ -27073,8 +26843,6 @@ var $$IMU_EXPORT$$;
 			if (!options) {
 				options = {};
 			}
-			if (_nir_debug_)
-				console_log("trigger_popup (options:", options, ")", current_frame_id);
 			if (!settings.mouseover_allow_popup_when_fullscreen && is_fullscreen() && !is_popup_fullscreen())
 				return;
 			delay_handle_triggering = true;
@@ -27088,8 +26856,6 @@ var $$IMU_EXPORT$$;
 				return;
 			}
 			var els = find_els_at_point(point);
-			if (_nir_debug_)
-				console_log("trigger_popup: els =", els, "point =", point);
 			if (options.is_contextmenu) {
 				mouseContextX = null;
 				mouseContextY = null;
@@ -27102,8 +26868,6 @@ var $$IMU_EXPORT$$;
 					pagelink: true
 				};
 			}
-			if (_nir_debug_)
-				console_log("trigger_popup: source =", source);
 			if (source && (popup_trigger_reason !== "mouse" || get_physical_popup_el(source.el) !== last_popup_el)) {
 				trigger_popup_with_source(source);
 			} else {
@@ -27243,8 +27007,6 @@ var $$IMU_EXPORT$$;
 						cb: realcb
 					}, function(obj, finalcb) {
 						var orig_obj = obj;
-						if (_nir_debug_)
-							console_log("do_popup: brl query:", obj);
 						if (options.null_if_no_change && obj[0].url === source.src) {
 							return finalcb(source.src, obj[0], null);
 						}
@@ -27285,8 +27047,6 @@ var $$IMU_EXPORT$$;
 						}
 						processing.source = source;
 						check_image_get(newobj, function(img, newurl, obj, respdata) {
-							if (_nir_debug_)
-								console_log("do_popup: check_image_get response:", img, newurl, obj, respdata);
 							if (!img) {
 								return finalcb(null);
 							}
@@ -28755,7 +28515,6 @@ var $$IMU_EXPORT$$;
 					return;
 				observer.disconnect();
 			};
-			termination_hooks.push(disconnect);
 			var needs_observer = function() {
 				var highlight = get_single_setting("highlightimgs_auto");
 				return highlight === "always" || highlight === "hover" || settings.replaceimgs_auto || (mouseover_mouse_enabled() && settings.mouseover_trigger_mouseover);
@@ -29058,9 +28817,6 @@ var $$IMU_EXPORT$$;
 			});
 		};
 		var action_handler = function(action) {
-			if (_nir_debug_) {
-				console_log("action_handler", action);
-			}
 			if (action.needs_popup && !popup_active())
 				return;
 			switch (action.type) {
@@ -29709,9 +29465,6 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		var remote_handle_message = function(message, sender, respond) {
-			if (_nir_debug_) {
-				console_log("ON_REMOTE_MESSAGE", message, sender, respond);
-			}
 			if (message.type === "make_popup") {
 				if (!is_in_iframe) {
 					resetpopups();
@@ -29776,9 +29529,6 @@ var $$IMU_EXPORT$$;
 			return false;
 		};
 		our_addEventListener(get_window(), "message", function(event) {
-			if (_nir_debug_) {
-				console_log("window.onMessage", event);
-			}
 			if (!can_use_remote() || !event.data || typeof event.data !== "object" || !(imu_message_key in event.data))
 				return;
 			handle_remote_event(event.data[imu_message_key]);
@@ -30097,7 +29847,5 @@ var $$IMU_EXPORT$$;
 			do_mouseover();
 		}
 	}
-	if (_nir_debug_)
-		console_log("Finished initial loading");
 	do_config();
 })();
