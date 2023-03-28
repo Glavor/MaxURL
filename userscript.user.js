@@ -60,8 +60,6 @@ var $$IMU_EXPORT$$;
 	var options_page = "https://qsniyg.github.io/maxurl/options.html";
 	var archive_options_page = "https://web.archive.org/web/20210328063940/https://qsniyg.github.io/maxurl/options.html";
 	var preferred_options_page = options_page;
-	var userscript_update_url = "https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js";
-	var greasyfork_update_url = userscript_update_url;
 	var github_issues_page = "https://github.com/qsniyg/maxurl/issues";
 	var imu_icon = "https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png";
 	var current_version = null;
@@ -221,51 +219,7 @@ var $$IMU_EXPORT$$;
 	}
 	var get_compat_functions = function() {
 		var native_functions_to_get = [];
-		var get_json_stringify = function() {
-			try {
-				JSON_stringify = JSON.stringify;
-			} catch (e) {
-				console_warn("Cannot use native JSON.stringify, using slow implementation instead", e);
-				var is_json_undefined = function(x) {
-					return x === void 0 || typeof x === "function";
-				};
-				JSON_stringify = function(x) {
-					if (is_json_undefined(x))
-						return void 0;
-					if (typeof x === "string") {
-						return '"' + x
-							.replace(/\\/g, "\\\\")
-							.replace(/"/g, '\\"') + '"';
-					}
-					if (x === null)
-						return "null";
-					if (typeof x === "number")
-						return x + "";
-					if (is_array(x)) {
-						var els = [];
-						for (var i = 0; i < x.length; i++) {
-							var stringified = JSON_stringify(x[i]);
-							if (stringified === void 0)
-								stringified = "null";
-							els.push(stringified);
-						}
-						return "[" + els.join(",") + "]";
-					}
-					if (typeof x === "object") {
-						var els = [];
-						for (var key in x) {
-							var stringified = JSON_stringify(x[key]);
-							if (stringified === void 0)
-								continue;
-							els.push('"' + key + '":' + JSON_stringify(x[key]));
-						}
-						return "{" + els.join(",") + "}";
-					}
-					return void 0;
-				};
-			}
-		};
-		get_json_stringify();
+		JSON_stringify = JSON.stringify;
 		var get_orig_eventtarget = function() {
 			var EventTarget_addEventListener, EventTarget_removeEventListener;
 			if (is_interactive) {
@@ -2167,13 +2121,6 @@ var $$IMU_EXPORT$$;
 	}
 	var serialize_event = function(event) {
 		return deepcopy(event, { json: true });
-	};
-	var get_nonsensitive_settings = function() {
-		var new_settings = JSON_parse(JSON_stringify(settings));
-		for (var i = 0; i < sensitive_settings.length; i++) {
-			delete new_settings[sensitive_settings[i]];
-		}
-		return new_settings;
 	};
 	var parse_boolean = function(bool) {
 		if (bool === "true" || bool === true || bool === 1)
