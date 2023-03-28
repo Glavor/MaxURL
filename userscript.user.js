@@ -17466,229 +17466,6 @@ var $$IMU_EXPORT$$;
 		}
 		return src;
 	}
-	var get_helpers = function(options) {
-		var host_domain = "";
-		var host_domain_nowww = "";
-		var host_domain_nosub = "";
-		if (options.host_url) {
-			host_domain = options.host_url.replace(/^[a-z]+:\/\/([^/]*)(?:\/.*)?$/, "$1");
-			host_domain_nowww = host_domain.replace(/^www\./, "");
-			host_domain_nosub = host_domain.replace(/^.*\.([^.]*\.[^.]*)$/, "$1");
-			if (host_domain_nosub.match(/^co\.[a-z]{2}$/)) {
-				host_domain_nosub = host_domain.replace(/^.*\.([^.]*\.[^.]*\.[^.]*)$/, "$1");
-			}
-		}
-		try {
-			if (options.document)
-				document = options.document;
-			if (options.window)
-				window = options.window;
-		} catch (e) {
-		}
-		var new_image = function(src) {
-			var img = document_createElement("img");
-			img.src = src;
-			return img;
-		};
-		var new_video = function(src) {
-			var video = document_createElement("video");
-			video.src = src;
-			return video;
-		};
-		var new_media = function(src, is_video) {
-			if (is_video)
-				return new_video(src);
-			else
-				return new_image(src);
-		};
-		var get_nextprev_el = function(el, nextprev) {
-			if (nextprev) {
-				return el.nextElementSibling;
-			} else {
-				return el.previousElementSibling;
-			}
-		};
-		var get_nextprev_from_list = function(el, list, nextprev) {
-			var el_src = get_img_src(el);
-			var index = -1;
-			for (var i = 0; i < list.length; i++) {
-				if (typeof list[i] === "string") {
-					if (el_src === list[i]) {
-						index = i;
-						break;
-					}
-				} else {
-					if (el === list[i]) {
-						index = i;
-						break;
-					}
-				}
-			}
-			if (index === -1)
-				return null;
-			if (nextprev) {
-				if ((index + 1) >= list.length)
-					return null;
-				else
-					return list[index + 1];
-			} else {
-				if ((index - 1) < 0)
-					return null;
-				else
-					return list[index - 1];
-			}
-		};
-		var get_nextprev_from_tree = function(el, nextprev, tree, selector) {
-			var current = el;
-			for (var i = 0; i < tree.length; i++) {
-				if (tree[i].tagName !== current.tagName)
-					return "default";
-				if (tree[i].classList) {
-					for (var _i = 0, _a = tree[i].classList; _i < _a.length; _i++) {
-						var cls = _a[_i];
-						if (!current.classList.contains(cls)) {
-							return "default";
-						}
-					}
-				}
-				current = current.parentElement;
-			}
-			var items = current.querySelectorAll(selector);
-			return get_nextprev_from_list(el, items, nextprev);
-		};
-		var get_nextprev_from_thumbs = function(el, nextprev, options) {
-			if (!options.compare_els) {
-				if (!options.compare_urls) {
-					if (options.id_for_url) {
-						if (typeof options.id_for_url !== "function") {
-							var id_for_url = options.id_for_url;
-							options.id_for_url = function(x) {
-								var match = x.match(id_for_url);
-								if (!match)
-									return null;
-								return match[1];
-							};
-						}
-						options.compare_urls = function(a, b) {
-							if (!a || !b)
-								return false;
-							return options.id_for_url(a) === options.id_for_url(b);
-						};
-					}
-				}
-				if (!options.get_img_src) {
-					options.get_img_src = get_img_src;
-				}
-				if (options.compare_urls) {
-					options.compare_els = function(a, b) {
-						if (!a || !b)
-							return false;
-						return options.compare_urls(options.get_img_src(a), options.get_img_src(b));
-					};
-				}
-			}
-			if (!options.compare_els) {
-				console_error("compare_els/compare_urls/id_for_url not present");
-				return false;
-			}
-			var thumbs_el = null;
-			if (!options.thumbs_selector_global) {
-				var current = el;
-				while (current = current.parentElement) {
-					thumbs_el = current.querySelector(options.thumbs_selector);
-					if (thumbs_el)
-						break;
-				}
-			} else {
-				thumbs_el = document.querySelector(options.thumbs_selector);
-			}
-			if (!thumbs_el) {
-				console_error("Unable to find thumbs element for", el);
-				return false;
-			}
-			var thumbs = thumbs_el.querySelectorAll(options.thumb_selector);
-			if (!thumbs) {
-				console_error("No thumbs for", thumbs_el);
-				return false;
-			}
-			var thumb = null;
-			array_foreach(thumbs, function(thumb_el) {
-				if (options.compare_els(el, thumb_el)) {
-					thumb = thumb_el;
-					return false;
-				}
-			});
-			if (!thumb) {
-				console_error("Unable to find thumb for", el, "in", thumbs_el);
-				return false;
-			}
-			return get_next_in_gallery(thumb, nextprev);
-		};
-		if (host_domain_nowww === "twitter.com") {
-			return {
-				gallery: function(el, nextprev) {
-					var is_photo_a = function(el) {
-						return el.tagName === "A" && el.href && /\/status\/+[0-9]+\/+photo\/+/.test(el.href);
-					};
-					var get_img_from_photo_a = function(el) {
-						var imgel = el.querySelector("img");
-						if (imgel) {
-							var prev = imgel.previousElementSibling;
-							if (prev && prev.tagName === "DIV" && prev.style.backgroundImage)
-								return prev;
-						}
-						return imgel;
-					};
-					var get_nextprev = function(el) {
-						if (nextprev) {
-							return el.nextElementSibling;
-						} else {
-							return el.previousElementSibling;
-						}
-					};
-					var get_photoel_from_photo_container = function(nextel) {
-						if (nextel.tagName === "A") {
-							return get_img_from_photo_a(nextel);
-						} else if (nextel.tagName === "DIV") {
-							var childid = nextprev ? 0 : (nextel.children.length - 1);
-							if (nextel.children.length > 0 && is_photo_a(nextel.children[childid])) {
-								return get_img_from_photo_a(nextel.children[childid]);
-							}
-						} else {
-							return "default";
-						}
-					};
-					var current = el;
-					while ((current = current.parentElement)) {
-						if (is_photo_a(current)) {
-							var nextel = get_nextprev(current);
-							if (nextel) {
-								return get_photoel_from_photo_container(nextel);
-							} else {
-								var parent = current.parentElement;
-								var sibling = get_nextprev(parent);
-								if (sibling) {
-									return get_photoel_from_photo_container(sibling);
-								}
-							}
-							return null;
-						}
-					}
-					return "default";
-				},
-				element_ok: function(el) {
-					if (el.tagName === "VIDEO") {
-						var tweet = common_functions["get_twitter_tweet_link"](el);
-						if (tweet) {
-							return true;
-						}
-					}
-					return "default";
-				}
-			};
-		}
-		return null;
-	};
 	var _get_album_info_gallery = function(album_info, el, nextprev) {
 		if (album_info.type === "links") {
 			var current_link_id = -1;
@@ -25711,7 +25488,6 @@ var $$IMU_EXPORT$$;
 			var thresh = parse_int(get_tprofile_setting("mouseover_minimum_size"));
 			if (isNaN(thresh))
 				thresh = 0;
-			var helpers = do_get_helpers({});
 			var source;
 			function check_visible(el) {
 				var visible_valid = true;
@@ -25855,29 +25631,6 @@ var $$IMU_EXPORT$$;
 				return true;
 			}
 			function addTagElement(el, layer) {
-				if (helpers && helpers.element_ok) {
-					if (!set_has(ok_els_set, el)) {
-						var element_ok_result = helpers.element_ok(el);
-						var ok_el_obj = {
-							count: 1,
-							src: null,
-							el: el,
-							id: id++,
-							is_ok_el: true
-						};
-						if (element_ok_result === true) {
-							ok_els.push(ok_el_obj);
-							set_add(ok_els_set, el);
-						} else {
-							if (is_element(element_ok_result)) {
-								ok_el_obj.el = element_ok_result;
-								ok_els.push(ok_el_obj);
-								set_add(ok_els_set, el);
-								el = element_ok_result;
-							}
-						}
-					}
-				}
 				var el_tagname = get_tagname(el);
 				if (el_tagname === "PICTURE" || el_tagname === "VIDEO") {
 					for (var i = 0; i < el.children.length; i++) {
@@ -27031,19 +26784,6 @@ var $$IMU_EXPORT$$;
 				do_popup();
 			}
 		}
-		function do_get_helpers(options) {
-			var baseoptions = {
-				document: document,
-				window: get_window(),
-				host_url: window.location.href,
-				do_request: do_request,
-				rule_specific: {}
-			};
-			for (var option in options) {
-				baseoptions[option] = options[option];
-			}
-			return get_helpers(baseoptions);
-		}
 		function wrap_gallery_func(nextprev, origel, el, cb, new_options) {
 			if (!el)
 				el = real_popup_el;
@@ -27071,16 +26811,7 @@ var $$IMU_EXPORT$$;
 			}
 			get_bigimage_extoptions_first(options);
 			get_bigimage_extoptions(options);
-			var helpers = get_helpers(options);
 			var gallery = get_next_in_gallery;
-			if (helpers && helpers.gallery) {
-				gallery = function(el, nextprev) {
-					var value = helpers.gallery(el, nextprev);
-					if (value || value === null)
-						return value;
-					return get_next_in_gallery(el, nextprev);
-				};
-			}
 			var value = gallery(el, nextprev);
 			if (value === "waiting") {
 				return;
