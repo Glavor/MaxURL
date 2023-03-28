@@ -1,12 +1,12 @@
 // @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
 // ^ for LibreJS (this has to be the first comment in the file)
 // ==UserScript==
-// @name              Image Max URL
+// @name              Image Max URL Glavor
 // @description       Finds larger or original versions of images and videos for 8200+ websites, including a powerful media popup and download feature
 // @description:zh-CN 在近万个网站上查找尺寸更大或原版的图像/视频，提供媒体文件小弹窗和下载功能
 // @namespace         http://tampermonkey.net/
 // @version           2023.3.0
-// @author            qsniyg
+// @author            Glavor
 // @homepageURL       https://qsniyg.github.io/maxurl/options.html
 // @supportURL        https://github.com/qsniyg/maxurl/issues
 // @icon              https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png
@@ -28,14 +28,11 @@
 // @grant             GM_setClipboard
 // @grant             GM.setClipboard
 // @connect           *
-// api.github.com is used for checking for updates (can be disabled through the "Check Updates" setting)
 // @connect           api.github.com
 // @run-at            document-start
 // @license           Apache-2.0
-// non-greasyfork/oujs versions need updateURL and downloadURL to auto-update for certain userscript managers
 // @updateURL         https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
 // @downloadURL       https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
-// imu:require_rules  (this is replaced by the build system for userscript versions that require external rules)
 // ==/UserScript==
 //
 // Project links:
