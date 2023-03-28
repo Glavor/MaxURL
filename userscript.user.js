@@ -1,5 +1,4 @@
 // @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
-// ^ for LibreJS (this has to be the first comment in the file)
 // ==UserScript==
 // @name              Max URL
 // @description       Finds larger or original versions of images and videos for 8200+ websites, including a powerful media popup and download feature
@@ -9,7 +8,18 @@
 // @author            Glavor
 // @homepageURL       https://qsniyg.github.io/maxurl/options.html
 // @icon              https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png
-// @include           *
+// @match             "*://*.sinaimg.cn/*",
+// @match             "*://*.twitter.com/*",
+// @match             "*://*.twimg.com/*",
+// @match             "*://*.yande.re/*",
+// @match             "*://*.redditstatic.com/*",
+// @match             "*://*.reddituploads.com/*",
+// @match             "*://*.redditmedia.com/*",
+// @match             "*://*.redd.it/*",
+// @match             "*://*.reddit.com/*",
+// @match             "*://*.mingtuiw.com/*",
+// @match             "*://*.pximg.net/*"
+// @match             "*://*.pixiv.net/*",
 // @grant             GM.xmlHttpRequest
 // @grant             GM_xmlhttpRequest
 // @grant             GM.setValue
@@ -27,7 +37,6 @@
 // @grant             GM_setClipboard
 // @grant             GM.setClipboard
 // @connect           *
-// @connect           api.github.com
 // @run-at            document-start
 // @license           Apache-2.0
 // @updateURL         https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
@@ -35,8 +44,6 @@
 // ==/UserScript==
 
 var $$IMU_EXPORT$$;
-// Disable linting because otherwise editing is incredibly slow
-// jshint ignore: start
 (function() {
 	var _nir_debug_ = false;
 	if (_nir_debug_) {
@@ -2394,51 +2401,6 @@ var $$IMU_EXPORT$$;
 		}
 		return new_settings;
 	};
-	var get_crashlog_info = function() {
-		var ua = "";
-		try {
-			ua = window.navigator.userAgent;
-		} catch (e) { }
-		var imu_version = "(!!!UNKNOWN, PLEASE FILL IN!!!)\n";
-		try {
-			imu_version = gm_info.script.version;
-		} catch (e) { }
-		var our_settings_text = "(unable to find)";
-		try {
-			our_settings_text = JSON_stringify(get_nonsensitive_settings());
-		} catch (e) { }
-		var keys = [
-			"User agent: " + ua,
-			"Is userscript: " + is_userscript,
-			"Is addon: " + is_extension,
-			"Image Max URL version: " + imu_version,
-			"Settings: " + our_settings_text
-		];
-		if (is_userscript) {
-			try {
-				keys.push("Userscript manager: " + userscript_manager);
-				keys.push("Userscript manager version: " + userscript_manager_version);
-			} catch (e) { }
-		}
-		return keys.join("\n");
-	};
-	function overlay_object(base, obj) {
-		if (typeof base === "function" || is_array(base))
-			return obj; // FIXME?
-		if (typeof base === "object") {
-			if (typeof obj !== "object")
-				return obj;
-			for (var key in obj) {
-				if (key in base) {
-					base[key] = overlay_object(base[key], obj[key]);
-				} else {
-					base[key] = obj[key];
-				}
-			}
-			return base;
-		}
-		return obj;
-	}
 	var parse_boolean = function(bool) {
 		if (bool === "true" || bool === true || bool === 1)
 			return true;
@@ -2455,11 +2417,6 @@ var $$IMU_EXPORT$$;
 	}
 	var supported_languages = [
 		"en",
-		"es",
-		"fr",
-		"it",
-		"ko",
-		"ru",
 		"zh-CN"
 	];
 	var browser_language = "en";
@@ -30751,7 +30708,7 @@ var $$IMU_EXPORT$$;
 						var error_pre = document_createElement("pre");
 						error_pre.style.fontFamily = "monospace";
 						error_pre.style.margin = "1em";
-						error_pre.innerText = get_crashlog_info() + "\n" + e.toString() + "\n" + e.stack;
+						error_pre.innerText = e.toString() + "\n" + e.stack;
 						var error_div = document_createElement("div");
 						var error_div_text = "Error loading options page, please report this to <a href='" + github_issues_page + "'>" + github_issues_page + "</a>, ";
 						error_div_text += "and include the following information in the report:";
