@@ -33,8 +33,8 @@
 // @run-at            document-start
 // @license           Apache-2.0
 // non-greasyfork/oujs versions need updateURL and downloadURL to auto-update for certain userscript managers
-// @updateURL         https://raw.githubusercontent.com/qsniyg/maxurl/master/userscript.meta.js
-// @downloadURL       https://raw.githubusercontent.com/qsniyg/maxurl/master/userscript_smaller.user.js
+// @updateURL         https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
+// @downloadURL       https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
 // imu:require_rules  (this is replaced by the build system for userscript versions that require external rules)
 // ==/UserScript==
 //
