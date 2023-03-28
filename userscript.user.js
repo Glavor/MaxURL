@@ -1,14 +1,13 @@
 // @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
 // ^ for LibreJS (this has to be the first comment in the file)
 // ==UserScript==
-// @name              Image Max URL Glavor
+// @name              Max URL
 // @description       Finds larger or original versions of images and videos for 8200+ websites, including a powerful media popup and download feature
 // @description:zh-CN 在近万个网站上查找尺寸更大或原版的图像/视频，提供媒体文件小弹窗和下载功能
 // @namespace         http://tampermonkey.net/
 // @version           2023.3.0
 // @author            Glavor
 // @homepageURL       https://qsniyg.github.io/maxurl/options.html
-// @supportURL        https://github.com/qsniyg/maxurl/issues
 // @icon              https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png
 // @include           *
 // @grant             GM.xmlHttpRequest
@@ -34,33 +33,17 @@
 // @updateURL         https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
 // @downloadURL       https://raw.githubusercontent.com/Glavor/MaxURL/mini/userscript.user.js
 // ==/UserScript==
-//
-// Project links:
-//
-//   * Github:          https://github.com/qsniyg/maxurl
-//   * Discord:         https://discord.gg/fH9Pf54
-//   * Reddit:          https://www.reddit.com/r/MaxImage/
-//   * Website:         https://qsniyg.github.io/maxurl/
-//   * Guide:           https://qsniyg.github.io/maxurl/guide.html
-//   * Userscript:
-//     * OpenUserJS:    https://openuserjs.org/scripts/qsniyg/Image_Max_URL
-//     * Github:        https://raw.githubusercontent.com/qsniyg/maxurl/master/userscript_smaller.user.js
-//     * Github (beta): https://raw.githubusercontent.com/qsniyg/maxurl/master/userscript.user.js
-//   * Firefox addon:   https://addons.mozilla.org/firefox/addon/image-max-url/
-//   * Opera extension: https://addons.opera.com/en/extensions/details/image-max-url/
+
 var $$IMU_EXPORT$$;
 // Disable linting because otherwise editing is incredibly slow
 // jshint ignore: start
 (function() {
-	// Don't 'use strict', as it prevents nested functions
-	//'use strict';
 	var _nir_debug_ = false;
 	if (_nir_debug_) {
 		_nir_debug_ = {
 			no_request: false,
 			no_recurse: false,
 			no_redirect: true,
-			// channels
 			map: true,
 			cache: true,
 			bigimage_recursive: true,
@@ -84,21 +67,16 @@ var $$IMU_EXPORT$$;
 	var is_maxurl_website = false;
 	var window_location = null;
 	var options_page = "https://qsniyg.github.io/maxurl/options.html";
-	// todo: update
 	var archive_options_page = "https://web.archive.org/web/20210328063940/https://qsniyg.github.io/maxurl/options.html";
 	var preferred_options_page = options_page;
 	var firefox_addon_page = "https://addons.mozilla.org/en-US/firefox/addon/image-max-url/";
 	var userscript_update_url = "https://raw.githubusercontent.com/qsniyg/maxurl/master/userscript_smaller.user.js";
 	var greasyfork_update_url = userscript_update_url;
-	//var greasyfork_update_url = "https://greasyfork.org/scripts/36662-image-max-url/code/Image%20Max%20URL.user.js";
 	var github_issues_page = "https://github.com/qsniyg/maxurl/issues";
 	var imu_icon = "https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png";
 	var current_version = null;
 	var imagetab_ok_override = false;
 	var has_ffmpeg_lib = true;
-	// -- Currently this is unused, it'll be used in a future release (to workaround the 1MB and 2MB limits for OUJS and Greasyfork respectively) --
-	// This is only set for the Greasyfork/OUJS versions if it fails to @require the rules (contents of bigimage).
-	// The likely causes would be either a CDN failure, or that the userscript manager doesn't support @require.
 	var require_rules_failed = false;
 	var get_raw_window = function() {
 		if (typeof (unsafeWindow) !== "undefined")
@@ -107,9 +85,6 @@ var $$IMU_EXPORT$$;
 	};
 	var get_window = function() {
 		var raw_window = get_raw_window();
-		// https://github.com/qsniyg/maxurl/issues/678#issuecomment-791855176
-		// userscript under firefox violentmonkey under twitter's unsafeWindow returns Sandbox, which isn't an EventTarget (breaks "message" handler)
-		// .self returns the actual window, which is an EventTarget
 		if (raw_window.self)
 			return raw_window.self;
 		else
@@ -155,7 +130,6 @@ var $$IMU_EXPORT$$;
 	} catch (e) {
 	}
 	var check_if_extension = function() {
-		// in sendvid.com, chrome is null, which typeof === "object"
 		if (typeof chrome !== "object" || !chrome || typeof chrome.runtime !== "object")
 			return;
 		try {
@@ -177,7 +151,6 @@ var $$IMU_EXPORT$$;
 			extension_options_page = chrome.runtime.getURL("extension/options.html");
 			is_extension_options_page = window_location.replace(/[?#].*$/, "") === extension_options_page;
 			is_options_page = is_options_page || is_extension_options_page;
-			//options_page = extension_options_page; // can't load from website
 			preferred_options_page = extension_options_page;
 			is_webextension = true;
 			if (navigator.userAgent.indexOf("Firefox") >= 0)
@@ -201,7 +174,6 @@ var $$IMU_EXPORT$$;
 				}
 			};
 			if (!is_extension_bg) {
-				// firefox doesn't load the runtime listener immediately
 				setTimeout(function() {
 					var runtime_port = chrome.runtime.connect();
 					runtime_port.onDisconnect.addListener(function(e) {
@@ -238,7 +210,6 @@ var $$IMU_EXPORT$$;
 	var is_userscript = false;
 	if (!is_node && !is_scripttag && !is_extension)
 		is_userscript = true;
-	// https://stackoverflow.com/a/326076
 	var check_in_iframe = function() {
 		try {
 			return window.self !== window.top;
@@ -266,9 +237,6 @@ var $$IMU_EXPORT$$;
 				userscript_manager_version = gm_info.version;
 			}
 		} else if (typeof GM_fetch === 'function' && gm_info === null) {
-			// Unfortunately FireMonkey currently doesn't implement GM_info's scriptHandler:
-			//   https://github.com/erosman/support/issues/98#issuecomment-534671229
-			// We currently have to rely on this hack
 			userscript_manager = "FireMonkey";
 			gm_info = { scriptHandler: userscript_manager };
 		}
@@ -290,11 +258,6 @@ var $$IMU_EXPORT$$;
 			return false;
 		}
 	};
-	// restore console.log for websites that remove it (twitter)
-	// https://gist.github.com/Ivanca/4586071
-	//var console_log = function(){ return window.console.__proto__.log.apply(console, arguments) } ;
-	//var console_error = function(){ return window.console.__proto__.error.apply(console, arguments) } ;
-	// since the userscript is run first, this generally shouldn't be a problem
 	var raw_console_log = console.log;
 	var console_log = function() {
 		var args = [];
@@ -308,7 +271,6 @@ var $$IMU_EXPORT$$;
 	var console_error = console.error;
 	var console_warn = console.warn;
 	var console_trace = console.trace;
-	// twitter overrides console.error to a broken function
 	if (!is_native(console_error)) {
 		console_error = function() {
 			var _args = [];
@@ -329,7 +291,6 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	if (_nir_debug_) {
-		// fixme: (channel:string, ...args)
 		nir_debug = function() {
 			var _args = [];
 			for (var _i = 0; _i < arguments.length; _i++) {
@@ -347,27 +308,19 @@ var $$IMU_EXPORT$$;
 	}
 	var JSON_stringify;
 	var JSON_parse = JSON.parse;
-	// parseInt occasionally crashes for tagesspiegel.de with brave shields and violentmonkey 2.13.0
-	// seems to be a race, as it sometimes works, and it always works in the console
 	var parse_int = function(x) {
-		// -0 instead of |0 because 1846699492419 returns -136444861 otherwise (>32bit)
-		// -0 works for strings too, but TS doesn't like it
 		var asnumber = x - 0;
 		var floor = asnumber | 0;
 		var diff = floor - asnumber;
-		// Math.abs
 		if (diff < 0)
 			diff = -diff;
 		if (diff > 1) {
-			// todo: use Math.floor if available
 			var floored_string = (x + "").replace(/\..*/, "");
 			return floored_string - 0;
 		}
 		return floor;
 	};
 	var base64_decode, base64_encode, is_array, array_indexof, string_indexof, 
-	// https://www.bing.com/ overrides Blob
-	// https://www.dpreview.com/ overrides URL
 	native_blob, native_URL, new_blob, our_EventTarget, our_addEventListener, our_removeEventListener, string_fromcharcode, string_charat, array_reduce, array_reduce_prototype, document_createElement;
 	if (is_node) {
 		base64_decode = function(a) {
@@ -379,7 +332,6 @@ var $$IMU_EXPORT$$;
 	}
 	var get_compat_functions = function() {
 		var native_functions_to_get = [];
-		// ublock prevents JSON.stringify from being used on foxnews.com
 		var get_json_stringify = function() {
 			try {
 				JSON_stringify = JSON.stringify;
@@ -388,8 +340,6 @@ var $$IMU_EXPORT$$;
 				var is_json_undefined = function(x) {
 					return x === void 0 || typeof x === "function";
 				};
-				// probably incorrect (especially regarding string handling) and doesn't support formatting
-				// does it matter?
 				JSON_stringify = function(x) {
 					if (is_json_undefined(x))
 						return void 0;
@@ -422,15 +372,12 @@ var $$IMU_EXPORT$$;
 						}
 						return "{" + els.join(",") + "}";
 					}
-					// does this happen?
 					return void 0;
 				};
 			}
 		};
 		get_json_stringify();
-		// Nano Defender(?) overrides this on some sites.
 		var get_orig_eventtarget = function() {
-			// native_functions returns iframe
 			var EventTarget_addEventListener, EventTarget_removeEventListener;
 			if (is_interactive) {
 				our_EventTarget = EventTarget;
@@ -443,10 +390,8 @@ var $$IMU_EXPORT$$;
 					eventhandler_map = new_map();
 			};
 			our_addEventListener = function(element, event, handler, options) {
-				// VM compatibility
 				if (element === window && element.unsafeWindow)
 					element = element.unsafeWindow;
-				// performance
 				var suspended_check = function() { return is_suspended(true); };
 				if (event === "mousemove") {
 					suspended_check = function() { return is_suspended(false); };
@@ -460,7 +405,6 @@ var $$IMU_EXPORT$$;
 					}
 					return real_handler(e);
 				};
-				// i??.fastpic.ru: needles are 'click' and 'popMagic'
 				var new_handler = function(e) {
 					return handler(e);
 				};
@@ -481,7 +425,6 @@ var $$IMU_EXPORT$$;
 			};
 		};
 		get_orig_eventtarget();
-		// i??.fastpic.ru with violentmonkey
 		var get_orig_createelement = function() {
 			var HTMLDocument_createElement;
 			if (is_interactive || is_scripttag || typeof HTMLDocument === "function") {
@@ -521,14 +464,10 @@ var $$IMU_EXPORT$$;
 			} else {
 				is_array = is_array_correct;
 			}
-			// FIXME: why is there no check? is this a bug, or was this intentional?
-			//is_array = sanity_test(is_array_orig, is_array_correct);
 		};
 		get_is_array();
-		// kickass.com
 		var get_compat_string_fromcharcode = function() {
 			var string_fromcharcode_orig = null;
-			// ublock on clipwatching blocks this entirely
 			try {
 				string_fromcharcode_orig = String.fromCharCode;
 			} catch (e) { }
@@ -545,7 +484,6 @@ var $$IMU_EXPORT$$;
 			string_fromcharcode = sanity_test(string_fromcharcode_orig, fromcharcode_correct, fromcharcode_check);
 		};
 		get_compat_string_fromcharcode();
-		// porn.com (ublock)
 		var get_compat_string_charat = function() {
 			var string_prototype_charat = String.prototype.charAt;
 			var string_charat_orig = function(string, x) {
@@ -573,9 +511,6 @@ var $$IMU_EXPORT$$;
 		var get_compat_base64 = function() {
 			if (is_node)
 				return;
-			// Some websites replace atob, so we have to provide our own implementation in those cases
-			// https://stackoverflow.com/a/15016605
-			// unminified version: https://stackoverflow.com/a/3058974
 			var base64_decode_correct = function(s) {
 				var e = {}, i, b = 0, c, x, l = 0, a, r = '', w = string_fromcharcode, L = s.length;
 				var A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -613,16 +548,12 @@ var $$IMU_EXPORT$$;
 		};
 		get_compat_base64();
 		var get_compat_array_indexof = function() {
-			// https://www.mycomicshop.com/search?minyr=1938&maxyr=1955&TID=29170235
-			// this site replaces Array.indexOf
-			// cache Array.prototype.indexOf in case it changes while the script is executing
 			var array_prototype_indexof = Array.prototype.indexOf;
 			var array_indexof_orig = function(array, x) {
 				return array_prototype_indexof.call(array, x);
 			};
 			var array_indexof_correct = function(array, x) {
 				if (typeof array === "string") {
-					// TODO: make sure Array.from is sane
 					array = Array.from(array);
 				}
 				for (var i = 0; i < array.length; i++) {
@@ -647,7 +578,6 @@ var $$IMU_EXPORT$$;
 			array_indexof = sanity_test(array_indexof_orig, array_indexof_correct, array_indexof_check);
 		};
 		get_compat_array_indexof();
-		// idol.sankakucomplex.com overrides this with a broken one
 		var get_compat_array_reduce = function() {
 			var array_prototype_reduce = Array.prototype.reduce;
 			var array_reduce_orig = function(array, cb, initial) {
@@ -672,12 +602,10 @@ var $$IMU_EXPORT$$;
 				return acc;
 			};
 			var array_reduce_check = function(func) {
-				// should throw 'undefined is not a function'
 				try {
 					func([]);
 					return false;
 				} catch (e) { }
-				// should throw 'Reduce of empty array with no initial value'
 				try {
 					func([], function() { });
 					return false;
@@ -757,8 +685,6 @@ var $$IMU_EXPORT$$;
 			var native_blob_check = function(Blob) {
 				if (typeof Blob !== "function" || typeof Blob.prototype !== "object")
 					return false;
-				// doesn't seem to work under Firefox
-				// it does exist after a while, but not while checking
 				if (false && Blob.name !== "Blob")
 					return false;
 				if ( /*!("arrayBuffer" in Blob.prototype) ||*/ // Not implemented in pale moon
@@ -775,7 +701,6 @@ var $$IMU_EXPORT$$;
 			};
 			native_blob = sanity_test(Blob, fake_blob, native_blob_check, "Blob");
 			if (native_blob !== Blob) {
-				// todo: sanity check Response and File
 				if (typeof Response === "function") {
 					new_blob = function(data, cb, options) {
 						var response_opt = {};
@@ -796,10 +721,8 @@ var $$IMU_EXPORT$$;
 			}
 		};
 		get_compat_blob();
-		// this is rather slow (~25ms according to fireattack's profile)
 		var native_functions = {};
 		var get_native_functions = function(functions) {
-			// thanks to tophf here: https://github.com/violentmonkey/violentmonkey/issues/944
 			var iframe = document_createElement("iframe");
 			iframe.srcdoc = ""; //"javascript:0"
 			document.documentElement.appendChild(iframe);
@@ -810,7 +733,6 @@ var $$IMU_EXPORT$$;
 			}
 			iframe.parentElement.removeChild(iframe);
 		};
-		// FIXME: this doesn't work under pale moon: https://github.com/qsniyg/maxurl/issues/349
 		if (native_functions_to_get.length > 0) {
 			try {
 				get_native_functions(native_functions_to_get);
@@ -873,7 +795,6 @@ var $$IMU_EXPORT$$;
 			array.push(item);
 	};
 	var string_replaceall = function(str, find, replace) {
-		// TODO: make faster
 		return str.split(find).join(replace);
 	};
 	var match_all = function(str, regex) {
@@ -899,7 +820,6 @@ var $$IMU_EXPORT$$;
 		}
 		return obj;
 	};
-	// todo: make type CommonFunctions
 	var common_functions = {};
 	common_functions["nullfunc"] = function() { };
 	common_functions["nullobjfunc"] = function() {
@@ -914,65 +834,50 @@ var $$IMU_EXPORT$$;
 		return str.join("");
 	};
 	common_functions["new_vm"] = function() {
-		// si[n] = nth stack item (last = 0)
 		var vm_arch = [
-			// 0: Push data to the stack
 			function(vm) {
 				vm.stack.unshift(vm.data);
 			},
-			// 1: Push arg to the stack
 			function(vm) {
 				vm.stack.unshift(vm.arg);
 			},
-			// 2: Pop si[0] .. si[arg]
 			function(vm) {
 				for (var i = 0; i < vm.arg; i++) {
 					vm.stack.shift();
 				}
 			},
-			// 3: Push si[arg] to si[0]
 			function(vm) {
 				vm.stack.unshift(vm.stack[vm.arg]);
 			},
-			// 4: Append si[1] to si[0]
 			function(vm) {
 				vm.stack[0].push(vm.stack[1]);
 			},
-			// 5: Prepend si[1] to si[0]
 			function(vm) {
 				vm.stack[0].unshift(vm.stack[1]);
 			},
-			// 6: Reverse si[0]
 			function(vm) {
 				vm.stack[0].reverse();
 			},
-			// 7: Swaps the values at si[1] and si[2] in si[0]
 			function(vm) {
 				var register = vm.stack[0][vm.stack[2]];
 				vm.stack[0][vm.stack[2]] = vm.stack[0][vm.stack[1] % vm.stack[0].length];
 				vm.stack[0][vm.stack[1] % vm.stack[0].length] = register;
 			},
-			// 8: Removes si[1] (id) from si[0]
 			function(vm) {
 				vm.stack[0].splice(vm.stack[1], 1);
 			},
-			// 9: Removes everything from the beginning of si[0] to si[1]
 			function(vm) {
 				vm.stack[0].splice(0, vm.stack[1]);
 			},
-			// 10: Removes everything from si[1] to the end of si[0]
 			function(vm) {
 				vm.stack[0].splice(vm.stack[1], vm.stack[0].length);
 			},
-			// 11: Adds si[2] to the value at si[1] in si[0]
 			function(vm) {
 				vm.stack[0][vm.stack[1]] += vm.stack[2];
 			},
-			// 12: Multiplies si[2] with the value at si[1] in si[0]
 			function(vm) {
 				vm.stack[0][vm.stack[1]] *= vm.stack[2];
 			},
-			// 13: Negates the value at si[1] in si[0]
 			function(vm) {
 				vm.stack[0][vm.stack[1]] *= -1;
 			},
@@ -1010,30 +915,23 @@ var $$IMU_EXPORT$$;
 	};
 	common_functions["create_vm_ops"] = function(instructions) {
 		var ops = [];
-		// initialize stack
 		for (var i = 0; i < 3; i++) {
 			ops.push(1, 0);
 		}
 		array_foreach(instructions, function(inst) {
 			var opcode = inst[0];
-			// push arguments
 			for (var i = 1; i < inst.length; i++) {
 				ops.push(1, inst[i]);
 			}
 			var args_count = inst.length - 1;
 			ops.push(
-			// push data
 			0, null, 
-			// run operation
 			opcode, null, 
-			// pop data+args
 			2, 1 + args_count);
 		});
-		// cleanup
 		ops.push(2, 3);
 		return ops;
 	};
-	// ublock blocks accessing Math on sites like gfycat
 	var Math_floor, Math_round, Math_random, Math_max, Math_min, Math_abs, Math_pow;
 	var get_compat_math = function() {
 		if (is_node)
@@ -1084,7 +982,6 @@ var $$IMU_EXPORT$$;
 						if (!isNaN(new_math_seed))
 							math_seed += new_math_seed;
 					} catch (e) {
-						//console_warn(e);
 					}
 				}
 				math_seed += Date.now();
@@ -1112,7 +1009,6 @@ var $$IMU_EXPORT$$;
 					return -x;
 				return x;
 			};
-			// incorrect but good enough for now
 			Math_pow = function(x, y) {
 				for (var i = 1; i < y; i++) {
 					x *= x;
@@ -1148,7 +1044,6 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	function version_compare(a, b) {
-		// just in case
 		if (typeof a !== "string" || typeof b !== "string")
 			return null;
 		var version_regex = /^[0-9]+(\.[0-9]+){0,}$/;
@@ -1181,22 +1076,16 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	var id_to_iframe = {};
-	// todo: move to do_mouseover
 	var get_frame_info = function() {
 		return {
 			id: current_frame_id,
-			//url: window.location.href, // doesn't get updated for the iframe src's attribute?
 			url: current_frame_url,
 			size: [
-				//document.documentElement.scrollWidth,
-				//document.documentElement.scrollHeight
-				// indavideo.hu has iframes with more height than what is displayed
 				window.innerWidth,
 				window.innerHeight
 			]
 		};
 	};
-	// todo: move to do_mouseover
 	var find_iframe_for_info = function(info) {
 		if (info.id in id_to_iframe)
 			return id_to_iframe[info.id];
@@ -1213,11 +1102,8 @@ var $$IMU_EXPORT$$;
 				continue;
 			newiframes.push(iframe_els[i]);
 		}
-		// useful for later if we don't have the length <= 1 check
 		var ignored_src = false;
 		if (newiframes.length === 0) {
-			// e.g. indavideo, frame's src != iframe src because it gets redirected (/ at the end is removed)
-			//newiframes = iframes as Array<HTMLIFrameElement>; // FIXME: iframes doesn't exist?
 			newiframes = [];
 			ignored_src = true;
 		} else if (newiframes.length <= 1) {
@@ -1234,7 +1120,6 @@ var $$IMU_EXPORT$$;
 		}
 		if (newiframes.length <= 1)
 			return finish(newiframes[0]);
-		// TODO: check cursor too
 		return null;
 	};
 	var iframe_to_id = function(iframe) {
@@ -1247,13 +1132,11 @@ var $$IMU_EXPORT$$;
 	var id_to_iframe_window = function(id) {
 		if (!(id in id_to_iframe))
 			return null;
-		// no need for contentWindow in top
 		if (id !== "top") {
 			try {
 				if (id_to_iframe[id].contentWindow)
 					return id_to_iframe[id].contentWindow;
 			} catch (e) {
-				// not allowed
 				return false;
 			}
 		}
@@ -1287,7 +1170,6 @@ var $$IMU_EXPORT$$;
 					if (_nir_debug_) {
 						console_warn("Unable to find window for", to, { is_in_iframe: is_in_iframe, id_to_iframe: id_to_iframe });
 					}
-					// not allowed
 					return;
 				}
 			}
@@ -1302,7 +1184,6 @@ var $$IMU_EXPORT$$;
 						if (_nir_debug_) {
 							console_warn("Unable to send message to", window.frames[i], e);
 						}
-						// not allowed
 						continue;
 					}
 				}
@@ -1312,7 +1193,6 @@ var $$IMU_EXPORT$$;
 		};
 		is_remote_possible = true;
 		if (window.location.hostname === "cafe.daum.net") {
-			// unfortunately they interpret all message events, leading to bugs in their website. thanks to ambler on discord for noticing
 			is_remote_possible = false;
 		}
 	}
@@ -1337,7 +1217,6 @@ var $$IMU_EXPORT$$;
 			if (_nir_debug_) {
 				console_log("remote_send_message", to, message);
 			}
-			//console_log("remote", data);
 			raw_remote_send_message(to, message);
 		};
 		remote_send_reply = function(to, response_id, data) {
@@ -1407,8 +1286,6 @@ var $$IMU_EXPORT$$;
 		try {
 			xhr.send(request.data);
 		} catch (e) {
-			// net::ERR_NETWORK_CHANGED can throw an error
-			// thanks to AdClear247 for reporting: https://github.com/qsniyg/maxurl/issues/747
 			console_error(e);
 			xhr.abort();
 		}
@@ -1423,7 +1300,6 @@ var $$IMU_EXPORT$$;
 			do_request_browser = null;
 		}
 	} catch (e) {
-		// adblock on jizzbunker.com, sends an exception with a random magic string if XMLHttpRequest is accessed
 		do_request_browser = null;
 	}
 	var extension_requests = {};
@@ -1467,9 +1343,6 @@ var $$IMU_EXPORT$$;
 				}
 			};
 		};
-		// imu:begin_exclude
-		// failed experiment to run requests within the browser page
-		// the issue is that it will run OPTIONS requests, even when the initial request is redirected
 		var bad_do_request_raw = function(data) {
 			var req = null;
 			var do_abort = false;
@@ -1504,10 +1377,7 @@ var $$IMU_EXPORT$$;
 				}
 			};
 		};
-		// imu:end_exclude
 	} else if (typeof (GM_xmlhttpRequest) !== "undefined") {
-		// idol.sankakucomplex.com overrides array.prototype.reduce
-		// not an issue for newer Violentmonkey versions
 		if (userscript_manager === "Violentmonkey" && version_compare(userscript_manager_version, "2.12.7") <= 0) {
 			do_request_raw = function(data) {
 				var orig_cbs = {};
@@ -1566,7 +1436,6 @@ var $$IMU_EXPORT$$;
 				if (typeof func === "string") {
 					var dest = func;
 					func = function() {
-						// this gets run for every frame the script is injected in
 						if (is_in_iframe)
 							return;
 						open_in_tab(dest);
@@ -1587,7 +1456,6 @@ var $$IMU_EXPORT$$;
 		}
 	}
 	var open_in_tab = common_functions["nullfunc"];
-	// todo: move below settings for options page
 	if (is_userscript) {
 		if (typeof (GM_openInTab) !== "undefined") {
 			open_in_tab = GM_openInTab;
@@ -1615,8 +1483,6 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	var check_tracking_blocked = function(result) {
-		// FireMonkey returns null for result if blocked
-		// GreaseMonkey returns null for status if blocked
 		if (!result || result.status === 0 || result.status === null) {
 			if (result && result.finalUrl && /^file:\/\//.test(result.finalUrl))
 				return false;
@@ -1630,7 +1496,6 @@ var $$IMU_EXPORT$$;
 			if (_nir_debug_) {
 				console_log("do_request", deepcopy(data));
 			}
-			// For cross-origin cookies
 			if (!("withCredentials" in data)) {
 				data.withCredentials = true;
 			}
@@ -1670,9 +1535,7 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (data.imu_multipart) {
-				//var boundary = "-----------------------------" + get_random_text(20);
 				var boundary = "----WebKitFormBoundary" + get_random_text(16);
-				// TODO: fix? only tested for one key
 				var postdata = "";
 				for (var key in data.imu_multipart) {
 					var value = data.imu_multipart[key];
@@ -1694,7 +1557,6 @@ var $$IMU_EXPORT$$;
 			var raw_request_do = do_request_raw;
 			if (is_userscript && settings.allow_browser_request) {
 				if (userscript_manager === "Falkon GreaseMonkey" ||
-					// USI doesn't properly support blob responses: https://bitbucket.org/usi-dev/usi/issues/13/various-problems-with-gm_xmlhttprequest
 					(userscript_manager === "USI" && data.need_blob_response)) {
 					raw_request_do = do_request_browser;
 					delete data.trackingprotection_failsafe;
@@ -1740,7 +1602,6 @@ var $$IMU_EXPORT$$;
 						console_log("do_request's finalcb:", resp, iserror);
 					}
 					if (check_tracking_blocked(resp)) {
-						// Workaround for a bug in FireMonkey where it calls both onload and onerror: https://github.com/erosman/support/issues/134
 						data.onload = null;
 						data.onerror = null;
 						var newdata = shallowcopy(data);
@@ -1777,7 +1638,6 @@ var $$IMU_EXPORT$$;
 						};
 						if (resp.response) {
 							var mime = null;
-							// hack for extension for performance
 							if (is_extension && "_responseEncoded" in resp && resp._responseEncoded.type) {
 								mime = resp._responseEncoded.type;
 							} else if (resp.responseHeaders) {
@@ -1879,7 +1739,6 @@ var $$IMU_EXPORT$$;
 		if (imu && imu.url) {
 			is_data = /^data:/.test(imu.url);
 		}
-		// hacky but works for now
 		if (is_data) {
 			return do_browser_download(imu, filename, cb);
 		}
@@ -1936,7 +1795,6 @@ var $$IMU_EXPORT$$;
 	var multiqueue = function(options, cb) {
 		var running = false;
 		var currently_running = 0;
-		// todo: support adding new items mid-run
 		var run_single = function() {
 			if (!options.queue.length) {
 				if (currently_running <= 0) {
@@ -1969,7 +1827,6 @@ var $$IMU_EXPORT$$;
 	var ImpreciseProgress = function(options) {
 		this.elements_num = options.elements_num || 0;
 		this.total_size = options.total_size || 0;
-		//this.total_size_known = false;
 		this.known_elements = {};
 		this.finished = false;
 		var last_percent = 0;
@@ -2066,13 +1923,11 @@ var $$IMU_EXPORT$$;
 			if (!("content-range" in headers)) {
 				return null;
 			} else {
-				// todo: improve
 				var range = headers["content-range"].split("/");
 				return parse_int(range[1]);
 			}
 		};
 		var download_chunk = function(start, end, cb, progresscb) {
-			//console_log("downloading", start, end, xhrobj.url);
 			var ourobj = deepcopy(xhrobj);
 			ourobj.method = "GET";
 			var range_value = "bytes=" + start + "-";
@@ -2133,9 +1988,6 @@ var $$IMU_EXPORT$$;
 		var chunk_size = options.chunk_size;
 		if (!chunk_size && chunk_size !== 0)
 			chunk_size = 512 * 1024;
-		// todo: GET, if Accept-Ranges is present, abort, save the current response, then go with chunked
-		// more info: https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
-		// or maybe just check 200/206 instead
 		download_chunk(0, chunk_size, function(resp) {
 			var headers = headers_list_to_dict(parse_headers(resp.responseHeaders));
 			var content_length = 0;
@@ -2161,8 +2013,6 @@ var $$IMU_EXPORT$$;
 			}
 			if (do_progress)
 				ip.total_size = content_length;
-			//console_log(content_length);
-			// todo: instead of this, maybe just keep running until 200/no more data?
 			var queue = [];
 			for (var start = resp.response.byteLength;; start += chunk_size) {
 				var val = [start];
@@ -2177,14 +2027,11 @@ var $$IMU_EXPORT$$;
 			}
 			if (do_progress)
 				ip.elements_num += queue.length;
-			//data.set(new Uint8Array(resp.response), 0);
 			var mqueue = multiqueue({
 				concurrency: options.chunks || 5,
 				queue: queue,
 				runner: function(item, cb) {
 					download_chunk(item[0], item[1], function(resp) {
-						// todo: check errors
-						//console_log(item[0], item[1], resp.response.byteLength, content_length);
 						data.set(new Uint8Array(resp.response), item[0]);
 						cb();
 					}, chunk_progress);
@@ -2203,7 +2050,6 @@ var $$IMU_EXPORT$$;
 			if (_nir_debug_)
 				console_log("clipboard_write execcommand", data);
 			var input = document.createElement("textarea");
-			// display: none and visibility: hidden prevent it from being copied in chrome
 			input.style.height = "1px";
 			input.style.width = "1px";
 			input.style.resize = "none";
@@ -2222,15 +2068,12 @@ var $$IMU_EXPORT$$;
 			}, 100);
 			cb(!!document.execCommand("copy"));
 		};
-		// firefox (83) doesn't yet support clipboard.write
 		if (navigator.clipboard && (navigator.clipboard.write || navigator.clipboard.writeText)) {
 			browser_clipboard_api_write = function(data, cb) {
 				if (_nir_debug_)
 					console_log("clipboard_write clipboard_api", data);
 				var promise;
 				var can_use_writetext = data.mime === "text/plain" && navigator.clipboard.writeText;
-				// though writeText is a wrapper over write, it allows us to avoid creating a blob, which can be an issue on some websites
-				// for some reason, chrome doesn't allow creating a ClipboardItem without a blob
 				if (!can_use_writetext && navigator.clipboard.write && typeof ClipboardItem === "function") {
 					var mimes = {};
 					mimes[data.mime] = new native_blob([data.text], { type: data.mime });
@@ -2251,7 +2094,6 @@ var $$IMU_EXPORT$$;
 	if (is_userscript) {
 		if (typeof GM_setClipboard === "function") {
 			native_clipboard_write = function(data, cb) {
-				// Violentmonkey doesn't support the info object that Tampermonkey supports, so just use mime by itself
 				GM_setClipboard(data.text, data.mime);
 				cb(true);
 			};
@@ -2296,7 +2138,6 @@ var $$IMU_EXPORT$$;
 		};
 		do_write();
 	};
-	// this might be different later
 	var clipboard_write_link = clipboard_write;
 	var get_cookies = null;
 	if (is_extension) {
@@ -2312,7 +2153,6 @@ var $$IMU_EXPORT$$;
 			});
 		};
 	} else if (is_userscript) {
-		// TODO: support GM_cookie
 		get_cookies = function(url, cb, options) {
 			if (settings.browser_cookies === false) {
 				return cb(null);
@@ -2327,7 +2167,6 @@ var $$IMU_EXPORT$$;
 			var host_domain_nosub = get_domain_nosub(host_domain);
 			var url_domain = get_domain_from_url(url);
 			var url_domain_nosub = get_domain_nosub(url_domain);
-			// this is ugly
 			if (host_domain_nosub === url_domain_nosub) {
 				cb(cookies_str_to_list(document.cookie));
 			} else {
@@ -2340,7 +2179,6 @@ var $$IMU_EXPORT$$;
 		var host_domain = get_domain_from_url(window_location);
 		return url_domain.toLowerCase() === host_domain.toLowerCase();
 	};
-	// internal helper function to get items from localStorage
 	var _localstorage_get_items = function(items, options) {
 		if (!options)
 			options = {};
@@ -2390,7 +2228,6 @@ var $$IMU_EXPORT$$;
 		return cookies;
 	};
 	var cookies_to_httpheader = function(cookies) {
-		// deduplication apparently isn't necessary (browser duplicates them too)
 		var strs = [];
 		for (var i = 0; i < cookies.length; i++) {
 			var str = cookies[i].name + "=" + cookies[i].value;
@@ -2488,13 +2325,9 @@ var $$IMU_EXPORT$$;
 		video: false,
 		album_info: null,
 		headers: {},
-		// host url to copy cookies from
 		cookie_url: null,
-		// whether credentials need to be sent. this is mainly added for rules to specify that credentials are not needed (e.g. when using cdns)
 		need_credentials: true,
-		// overrides the content type for websites that send the wrong one
 		content_type: null,
-		// maximum amount of chunks for downloading, 0 means unlimited
 		max_chunks: 0,
 		referer_ok: {
 			same_domain: false,
@@ -2524,11 +2357,9 @@ var $$IMU_EXPORT$$;
 		if (("namespaceURI" in x) && ("nodeType" in x) && ("nodeName" in x) && ("childNodes" in x)) {
 			return true;
 		}
-		// window
 		if (typeof x.HTMLElement === "function" && typeof x.navigator === "object") {
 			return true;
 		}
-		// very slow
 		if (is_interactive) {
 			if ((x instanceof Node) ||
 				(x instanceof Element) ||
@@ -2550,8 +2381,6 @@ var $$IMU_EXPORT$$;
 		return result;
 	};
 	if ("assign" in Object) {
-		// FIXME: should this be kept? it's faster, but it causes issues with object instances, like dom rects. it works fine with plain objects though
-		// it's about as good as JSON.parse(JSON.stringify(x)), but shallow
 		shallowcopy_obj = function(x) {
 			return Object.assign({}, x);
 		};
@@ -2629,7 +2458,6 @@ var $$IMU_EXPORT$$;
 		}
 		return new_settings;
 	};
-	// Note: None of this information is automatically sent anywhere, it's only displayed to the user when something crashes.
 	var get_crashlog_info = function() {
 		var ua = "";
 		try {
@@ -2682,7 +2510,6 @@ var $$IMU_EXPORT$$;
 			return false;
 		return;
 	};
-	// https://stackoverflow.com/a/25603630
 	function get_language() {
 		if (typeof navigator === "undefined")
 			return "en";
@@ -2709,13 +2536,9 @@ var $$IMU_EXPORT$$;
 		}
 	} catch (e) {
 		console_error(e);
-		// just in case
 		if (array_indexof(supported_languages, browser_language) < 0)
 			browser_language = "en";
 	}
-	// This section is automatically generated using tools/update_from_po.js.
-	// To modify translations, edit the respective .po file under the po subdirectory.
-	// Refer to the Translations section in CONTRIBUTING.md for more information.
 	var strings = {
 		"$language_native$": {
 			"_info": {
@@ -12099,7 +11922,6 @@ var $$IMU_EXPORT$$;
 				str = strings[str]["en"];
 			}
 		}
-		// most strings don't contain %
 		if (string_indexof(str, "%") < 0) {
 			return str;
 		}
@@ -12141,16 +11963,13 @@ var $$IMU_EXPORT$$;
 		"replaceimgs_remove_size_constraints"
 	];
 	var settings = {
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-530760246
 		imu_enabled: true,
 		language: browser_language,
 		check_updates: true,
 		check_update_interval: 24,
 		check_update_notify: false,
-		// thanks to forefix on firefox for the idea: https://github.com/qsniyg/maxurl/issues/189
 		dark_mode: false,
 		settings_tabs: true,
-		// thanks to ambler on discord for the idea
 		settings_alphabetical_order: false,
 		settings_visible_description: true,
 		settings_show_disabled: true,
@@ -12166,12 +11985,8 @@ var $$IMU_EXPORT$$;
 		disable_keybind_when_editing: true,
 		enable_gm_download: true,
 		gm_download_max: 15,
-		// thanks to pax romana on discord for the idea: https://github.com/qsniyg/maxurl/issues/372
-		// this must be false, because it requires a permission
 		enable_webextension_download: false,
-		// thanks to Michael82548 on github for the idea: https://github.com/qsniyg/maxurl/issues/848
 		enable_console_logging: true,
-		// this must be false for the extension because it requires a permission
 		write_to_clipboard: false,
 		redirect: true,
 		redirect_video: true,
@@ -12180,74 +11995,50 @@ var $$IMU_EXPORT$$;
 		redirect_extension: true,
 		canhead_get: true,
 		redirect_force_page: false,
-		// thanks to DevWannabe-dot on github for the idea: https://github.com/qsniyg/maxurl/issues/822
 		redirect_enable_infobox: true,
-		// thanks to fireattack on discord for the idea: https://github.com/qsniyg/maxurl/issues/324
 		redirect_infobox_url: false,
 		redirect_infobox_timeout: 7,
 		print_imu_obj: false,
 		redirect_disable_for_responseheader: false,
 		redirect_to_no_infobox: false,
-		// thanks to nijaz-lab on github for the idea: https://github.com/qsniyg/maxurl/issues/557
 		redirect_host_html: false,
 		mouseover: true,
-		// thanks to blue-lightning on github for the idea: https://github.com/qsniyg/maxurl/issues/16
 		mouseover_open_behavior: "popup",
-		//mouseover_trigger: ["ctrl", "shift"],
 		mouseover_trigger_behavior: "keyboard",
-		// thanks to 894-572 on github for the idea: https://github.com/qsniyg/maxurl/issues/30
 		mouseover_trigger_key: ["shift", "alt", "i"],
 		mouseover_trigger_key_t2: [],
 		mouseover_trigger_key_t3: [],
 		mouseover_trigger_delay: 1,
 		mouseover_trigger_mouseover: false,
-		// thanks to lnp5131 on github for the idea: https://github.com/qsniyg/maxurl/issues/421
 		mouseover_trigger_enabledisable_toggle: "disable",
 		mouseover_trigger_prevent_key: ["shift"],
-		// also thanks to blue-lightning: https://github.com/qsniyg/maxurl/issues/16
 		mouseover_close_behavior: "esc",
-		// thanks to acid-crash on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-436594057
 		mouseover_close_need_mouseout: true,
 		mouseover_jitter_threshold: 30,
 		mouseover_cancel_popup_when_elout: true,
 		mouseover_cancel_popup_with_esc: true,
-		// thanks to cosuwi on github for the idea: https://github.com/qsniyg/maxurl/issues/367
 		mouseover_cancel_popup_when_release: true,
-		// thanks to remlap on discord for the idea: https://github.com/qsniyg/maxurl/issues/250
 		mouseover_auto_close_popup: false,
 		mouseover_auto_close_popup_time: 5,
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-530760246
-		//mouseover_use_hold_key: true,
 		mouseover_hold_key: ["i"],
 		mouseover_hold_position_center: false,
 		popup_hold_zoom: "none",
 		mouseover_hold_close_unhold: false,
 		mouseover_hold_unclickthrough: true,
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-531549043
-		//mouseover_close_on_leave_el: true,
 		mouseover_close_el_policy: "both",
-		// thanks to hosa dokha on greasyfork for the idea: https://greasyfork.org/en/forum/discussion/71894/this-script-is-a-dream-come-true-just-1-thing
 		mouseover_close_click_outside: false,
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/126
 		mouseover_allow_partial: is_extension ? "media" : "video",
 		mouseover_partial_avoid_head: false,
 		mouseover_use_blob_over_data: false,
-		// https://github.com/qsniyg/maxurl/issues/667
 		popup_use_anonymous_crossorigin: false,
 		mouseover_enable_notallowed: true,
-		// thanks to Rnksts on discord for the idea
 		mouseover_enable_notallowed_cant_load: true,
 		mouseover_notallowed_duration: 300,
-		//mouseover_use_fully_loaded_image: is_extension ? false : true,
-		//mouseover_use_fully_loaded_video: false,
 		mouseover_minimum_size: 20,
-		// thanks to Raitzu on discord for the idea
 		popup_maximum_source_size: 0,
 		mouseover_exclude_backgroundimages: false,
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-530760246
 		mouseover_exclude_page_bg: true,
 		mouseover_exclude_imagemaps: true,
-		// thanks to Jin on discord for the idea
 		mouseover_only_links: false,
 		mouseover_linked_image: false,
 		mouseover_exclude_sameimage: false,
@@ -12259,12 +12050,10 @@ var $$IMU_EXPORT$$;
 		stream_mux_mp4_over_mkv: false,
 		hls_dash_use_max: true,
 		max_video_quality: null,
-		// thanks to Noodlers on discord for the idea: https://github.com/qsniyg/maxurl/issues/642
 		mouseover_video_autoplay: true,
 		mouseover_video_controls: false,
 		mouseover_video_controls_key: ["c"],
 		mouseover_video_loop: true,
-		// thanks to Runakanta on discord for the idea: https://github.com/qsniyg/maxurl/issues/403
 		mouseover_video_autoloop_max: 0,
 		mouseover_video_playpause_key: ["space"],
 		mouseover_video_muted: false,
@@ -12279,22 +12068,17 @@ var $$IMU_EXPORT$$;
 		mouseover_video_seek_amount: 10,
 		mouseover_video_seek_left_key: ["shift", "left"],
 		mouseover_video_seek_right_key: ["shift", "right"],
-		//mouseover_video_seek_vertical_scroll: false,
-		//mouseover_video_seek_horizontal_scroll: false,
 		mouseover_video_frame_prev_key: [","],
 		mouseover_video_frame_next_key: ["."],
 		mouseover_video_framerate: 25,
 		mouseover_video_speed_down_key: ["["],
 		mouseover_video_speed_up_key: ["]"],
 		mouseover_video_speed_amount: 0.25,
-		// thanks to Rnksts on discord for the idea
 		mouseover_video_reset_speed_key: ["backspace"],
 		mouseover_video_screenshot_key: ["shift", "s"],
-		// thanks to remlap for the idea: https://github.com/qsniyg/maxurl/issues/666
 		popup_video_screenshot_format: "png",
 		popup_enable_subtitles: true,
 		mouseover_ui: true,
-		// thanks to Runakanta on discord for the idea
 		mouseover_ui_toggle_key: ["u"],
 		mouseover_ui_opacity: 80,
 		mouseover_ui_use_safe_glyphs: false,
@@ -12303,7 +12087,6 @@ var $$IMU_EXPORT$$;
 		mouseover_ui_filesize: false,
 		mouseover_ui_gallerycounter: true,
 		mouseover_ui_gallerymax: 50,
-		// thanks to pacep94616 on github for the idea: https://github.com/qsniyg/maxurl/issues/225
 		mouseover_ui_gallerybtns: true,
 		mouseover_ui_closebtn: true,
 		mouseover_ui_optionsbtn: is_userscript ? true : false,
@@ -12315,9 +12098,7 @@ var $$IMU_EXPORT$$;
 		mouseover_ui_link_underline: true,
 		mouseover_use_remote: false,
 		mouseover_zoom_behavior: "fit",
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-531080061
 		mouseover_zoom_custom_percent: 100,
-		// thanks to Michael82548 on github for the idea: https://github.com/qsniyg/maxurl/issues/701
 		mouseover_zoom_use_last: "gallery",
 		mouseover_zoom_max_width: 0,
 		mouseover_zoom_max_height: 0,
@@ -12325,50 +12106,36 @@ var $$IMU_EXPORT$$;
 		mouseover_movement_inverted: true,
 		mouseover_drag_min: 5,
 		mouseover_scrolly_behavior: "zoom",
-		// thanks to madman06 on greasyfork for the idea: https://greasyfork.org/en/scripts/36662-image-max-url/discussions/90341
 		mouseover_scrolly_hold_behavior: "default",
 		mouseover_scrollx_behavior: "gallery",
 		mouseover_scrollx_hold_behavior: "default",
-		// thanks to Runakanta on discord for the idea
 		mouseover_scrolly_video_behavior: "default",
 		mouseover_scrolly_video_invert: false,
 		mouseover_scrollx_video_behavior: "default",
-		// thanks to regis on discord for the idea
 		scroll_override_page: false,
-		// thanks to regis on discord for the idea
 		scroll_zoom_origin: "cursor",
-		// thanks to Noodlers on discord for the idea
 		scroll_zoomout_pagemiddle: "never",
 		scroll_zoom_behavior: "fitfull",
-		// thanks to regis on discord for the idea
 		scroll_incremental_mult: 1.25,
 		mouseover_move_with_cursor: false,
-		// thanks to regis on discord for the idea
 		mouseover_move_within_page: true,
 		zoom_out_to_close: false,
-		// thanks to Runakanta on discord for the idea: https://github.com/qsniyg/maxurl/issues/471
 		scroll_past_gallery_end_to_close: false,
-		// thanks to 07416 on github for the idea: https://github.com/qsniyg/maxurl/issues/20#issuecomment-439599984
 		mouseover_position: "cursor",
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-531549043
 		mouseover_prevent_cursor_overlap: true,
 		mouseover_overflow_position_center: false,
 		mouseover_overflow_origin: "a11",
 		mouseover_add_link: true,
 		mouseover_add_video_link: false,
-		// thanks to bitst0rm on greasyfork for the idea: https://github.com/qsniyg/maxurl/issues/498
 		mouseover_click_image_close: false,
 		mouseover_click_video_close: false,
 		mouseover_download: false,
 		mouseover_hide_cursor: false,
 		mouseover_hide_cursor_after: 0,
 		mouseover_mouse_inactivity_jitter: 5,
-		// thanks to thewhiterabbit- on reddit for the idea: https://github.com/qsniyg/maxurl/issues/331
 		mouseover_clickthrough: false,
 		mouseover_mask_ignore_clicks: false,
-		// also thanks to 07416: https://github.com/qsniyg/maxurl/issues/25
 		mouseover_links: true,
-		// thanks to LoneFenris: https://github.com/qsniyg/maxurl/issues/25#issuecomment-482880122
 		mouseover_only_valid_links: true,
 		mouseover_allow_self_pagelink: false,
 		mouseover_allow_iframe_el: false,
@@ -12379,8 +12146,6 @@ var $$IMU_EXPORT$$;
 		mouseover_gallery_prev_key: ["left"],
 		mouseover_gallery_next_key: ["right"],
 		mouseover_gallery_move_after_video: false,
-		// https://github.com/qsniyg/maxurl/issues/284
-		// thanks to shivsah on github for the inspiration: https://github.com/qsniyg/maxurl/issues/95
 		mouseover_gallery_download_key: ["shift", "d"],
 		gallery_download_method: "zip",
 		gallery_download_unchanged: true,
@@ -12389,7 +12154,6 @@ var $$IMU_EXPORT$$;
 		gallery_jd_referer: "domain",
 		gallery_zip_add_tld: true,
 		gallery_zip_add_info_file: true,
-		// thanks to acid-crash on github for the idea: https://github.com/qsniyg/maxurl/issues/20
 		mouseover_styles: "",
 		mouseover_enable_fade: true,
 		mouseover_enable_zoom_effect: false,
@@ -12399,7 +12163,6 @@ var $$IMU_EXPORT$$;
 		mouseover_mask_styles2: "background-color: rgba(0, 0, 0, 0.5)",
 		mouseover_mask_fade_time: 100,
 		mouseover_ui_styles: "",
-		// thanks to decembre on github for the idea: https://github.com/qsniyg/maxurl/issues/14#issuecomment-541065461
 		mouseover_wait_use_el: false,
 		mouseover_add_to_history: false,
 		mouseover_close_key: ["esc"],
@@ -12408,7 +12171,6 @@ var $$IMU_EXPORT$$;
 		mouseover_open_bg_tab_key: ["shift", "o"],
 		mouseover_copy_link_key: ["shift", "c"],
 		mouseover_open_options_key: ["p"],
-		// thanks to Иван Хомяков on greasyfork for the idea: https://greasyfork.org/en/forum/discussion/comment/99404/#Comment_99404
 		mouseover_open_orig_page_key: ["n"],
 		mouseover_rotate_left_key: ["e"],
 		mouseover_rotate_right_key: ["r"],
@@ -12422,9 +12184,7 @@ var $$IMU_EXPORT$$;
 		mouseover_apply_blacklist: true,
 		apply_blacklist_host: false,
 		mouseover_matching_media_types: false,
-		// thanks to ComedicFox on discord for the idea: https://github.com/qsniyg/maxurl/issues/811
 		mouseover_allow_popup_when_fullscreen: false,
-		//mouseover_support_pointerevents_none: false,
 		mouseover_find_els_mode: "hybrid",
 		popup_allow_cache: true,
 		popup_cache_duration: 30,
@@ -12462,11 +12222,8 @@ var $$IMU_EXPORT$$;
 		teddit_redirect_reddit: true,
 		tiktok_no_watermarks: false,
 		tiktok_thirdparty: null,
-		// just a very small protection against github scraping bots :)
 		tumblr_api_key: base64_decode("IHhyTXBMTThuMWVDZUwzb1JZU1pHN0NMQUx3NkVIaFlEZFU2V3E1ZUQxUGJNa2xkN1kx").substr(1),
-		// thanks to modelfe on github for the idea: https://github.com/qsniyg/maxurl/issues/639
 		twitter_use_ext: false,
-		// thanks to LukasThyWalls on github for the idea: https://github.com/qsniyg/maxurl/issues/75
 		bigimage_blacklist: "",
 		bigimage_blacklist_engine: "glob",
 		filename_format: "{author_username} {filename}",
@@ -12477,14 +12234,8 @@ var $$IMU_EXPORT$$;
 		replaceimgs_replaceimgs: true,
 		replaceimgs_addlinks: false,
 		replaceimgs_replacelinks: false,
-		// thanks to elvisef on github for the idea: https://github.com/qsniyg/maxurl/issues/617
 		replaceimgs_plainlinks: "none",
-		// thanks to nijaz-lab on github for the idea: https://github.com/qsniyg/maxurl/issues/550
 		replaceimgs_links_newtab: false,
-		// thanks to elvisef on github for the idea: https://github.com/qsniyg/maxurl/issues/593#issuecomment-754609502
-		//replaceimgs_remove_size_constraints: false,
-		// thanks to elvisef on github for the idea to remove size constraints: https://github.com/qsniyg/maxurl/issues/593#issuecomment-754609502
-		// thanks to Raitzu on discord for the idea to enforce size constraints
 		replaceimgs_size_constraints: "none",
 		replaceimgs_usedata: is_userscript ? true : false,
 		replaceimgs_wait_fullyloaded: true,
@@ -12499,12 +12250,10 @@ var $$IMU_EXPORT$$;
 		highlightimgs_auto: "never",
 		highlightimgs_onlysupported: true,
 		highlightimgs_css: "outline: 4px solid yellow",
-		// cache entries (not settings, but this is the most convenient way to do it)
 		last_update_check: 0,
 		last_update_version: null,
 		last_update_url: null
 	};
-	//var orig_settings = deepcopy(settings);
 	var sensitive_settings = [
 		"tumblr_api_key"
 	];
@@ -12515,8 +12264,6 @@ var $$IMU_EXPORT$$;
 			name: "Enable extension",
 			description: "Globally enables or disables the extension",
 			category: "general",
-			// Userscript users can easily disable it from the userscript menu,
-			//   and enabling it again isn't as trivial as it is for the extension
 			extension_only: true,
 			imu_enabled_exempt: true
 		},
@@ -12898,8 +12645,6 @@ var $$IMU_EXPORT$$;
 			name: "Mouseover popup action",
 			description: "Determines how the mouseover popup will open",
 			profiled: true,
-			// While it won't work for some images without the extension, let's not disable it outright either
-			//extension_only: true,
 			hidden: is_userscript && open_in_tab === common_functions["nullfunc"],
 			options: {
 				_type: "combo",
@@ -12909,18 +12654,15 @@ var $$IMU_EXPORT$$;
 				newtab: {
 					name: "New tab"
 				},
-				// thanks to Hlsgs on github for the idea: https://github.com/qsniyg/maxurl/issues/556
 				newtab_bg: {
 					name: "New background tab",
 				},
 				download: {
 					name: "Download"
 				},
-				// thanks to lnp5131 on github for the idea: https://github.com/qsniyg/maxurl/issues/435
 				copylink: {
 					name: "Copy link"
 				},
-				// thanks to TurretBot on discord for the idea: https://github.com/qsniyg/maxurl/issues/668
 				replace: {
 					name: "Replace"
 				}
@@ -13727,7 +13469,6 @@ var $$IMU_EXPORT$$;
 			requires: {
 				mouseover_ui: true
 			},
-			// While it works for the extension, it's more or less useless
 			userscript_only: true,
 			category: "popup",
 			subcategory: "ui"
@@ -14149,7 +13890,6 @@ var $$IMU_EXPORT$$;
 			requires: {
 				mouseover_pan_behavior: "movement"
 			},
-			// It's doubtful many users will want this option enabled
 			advanced: true,
 			category: "popup",
 			subcategory: "behavior"
@@ -14490,7 +14230,6 @@ var $$IMU_EXPORT$$;
 			],
 			options: {
 				_type: "or",
-				// prefixed with a to ensure correct order
 				_group1: {
 					"a00": { name: "" },
 					"a10": { name: "" },
@@ -14818,7 +14557,6 @@ var $$IMU_EXPORT$$;
 					allow_thirdparty_libs: true
 				}
 			],
-			// thanks to fedesk on discord for the idea to make this profiled
 			profiled: true,
 			category: "popup",
 			subcategory: "video"
@@ -14924,8 +14662,6 @@ var $$IMU_EXPORT$$;
 					name: "Zip file"
 				},
 				"jdownloader": {
-					// we should probably tell the user to temporarily disable "LinkCollector: Do Link Check" (Advanced Settings)
-					// we already check for this, and jdownloader is much slower to check (one at a time)
 					name: "JDownloader"
 				}
 			},
@@ -15183,7 +14919,6 @@ var $$IMU_EXPORT$$;
 			requires: {
 				mouseover: true
 			},
-			//advanced: true, // Commenting this out because the option is important
 			category: "popup",
 			subcategory: "source"
 		},
@@ -15210,7 +14945,6 @@ var $$IMU_EXPORT$$;
 			warning: {
 				"full": "This will result in a much higher CPU load for websites such as Facebook, and will occasionally return the wrong element.\nUse this option with caution."
 			},
-			//advanced: true, // Commenting this out because the option is important
 			category: "popup",
 			subcategory: "source"
 		},
@@ -15336,7 +15070,6 @@ var $$IMU_EXPORT$$;
 					name: "(unlimited)",
 					is_null: true
 				},
-				// h prefix is important to keep the order
 				"h2160": {
 					name: "4K"
 				},
@@ -15456,7 +15189,6 @@ var $$IMU_EXPORT$$;
 			example_websites: [
 				"Private Flickr images"
 			],
-			// Until GM_Cookie is implemented
 			extension_only: true,
 			hidden: true,
 			onupdate: update_rule_setting
@@ -15502,9 +15234,6 @@ var $$IMU_EXPORT$$;
 			category: "rules",
 			subcategory: "rule_specific",
 			warning: {
-			// no longer currently relevant as this option currently uses the web api, not currently aware of any bans
-			// according to a user, this appears to happen if there are more than ~250 requests within 8-12 hours
-			//"true": "As of a recent (May 2021) Instagram update, this option may flag your account when requesting too often.\nPlease consider using a backup account if enabling this option."
 			},
 			onupdate: update_rule_setting
 		},
@@ -15574,15 +15303,12 @@ var $$IMU_EXPORT$$;
 				"ssstiktok.net:ttt": {
 					name: "ssstiktok.net"
 				},
-				// dead
 				/*"tiktokdownloader.in:ttt": {
 					name: "tiktokdownloader.in"
 				},*/
-				// dead
 				/*"savevideo.ninja:ttt": {
 					name: "savevideo.ninja"
 				},*/
-				// removing watermark doesn't work
 				"keeptiktok.com": {
 					name: "keeptiktok.com (LQ)"
 				},
@@ -15782,7 +15508,6 @@ var $$IMU_EXPORT$$;
 			warning: {
 				"true": "This could lead to rate limiting or IP bans"
 			},
-			// Auto-updating is disabled due to the warning above
 			needrefresh: true,
 			category: "extra",
 			subcategory: "replaceimages"
@@ -15870,17 +15595,14 @@ var $$IMU_EXPORT$$;
 				none: {
 					name: "Ignore"
 				},
-				// todo: replace_link?
 				replace_link_text: {
 					name: "Replace link+text"
 				},
 				replace_media: {
 					name: "Replace media"
 				}
-				// the lack of replace_link_media is intentional, as replaceimgs_addlinks covers this already
 			},
 			requires: {
-				// is this correct?
 				replaceimgs_replaceimgs: true
 			},
 			imu_enabled_exempt: true
@@ -16066,7 +15788,6 @@ var $$IMU_EXPORT$$;
 			"mouseover_open_behavior": "popup"
 		}
 	};
-	// this is horrible, a better solution would be to just have a settings_list object and iterate over that instead
 	var obj_insertafter = function(obj, oldkey, newkey, value) {
 		var newobj = {};
 		for (var key in obj) {
@@ -16077,7 +15798,6 @@ var $$IMU_EXPORT$$;
 		}
 		return newobj;
 	};
-	// populate profiled settings
 	(function() {
 		for (var setting in settings_meta) {
 			var orig_meta = settings_meta[setting];
@@ -16112,7 +15832,6 @@ var $$IMU_EXPORT$$;
 		}
 	})();
 	var orig_settings = deepcopy(settings);
-	// imu:begin_exclude
 	var do_process_strings = false;
 	var process_strings = function() {
 		/*for (var string in strings) {
@@ -16122,7 +15841,6 @@ var $$IMU_EXPORT$$;
 		}*/
 		for (var setting in settings_meta) {
 			var meta = settings_meta[setting];
-			// don't add dead settings to translate
 			if (!(setting in settings)) {
 				continue;
 			}
@@ -16217,7 +15935,6 @@ var $$IMU_EXPORT$$;
 	};
 	if (do_process_strings)
 		console_log(process_strings());
-	// imu:end_exclude
 	for (var option in option_to_problems) {
 		var problem = option_to_problems[option];
 		settings[option] = array_indexof(default_options.exclude_problems, problem) < 0;
@@ -16399,7 +16116,6 @@ var $$IMU_EXPORT$$;
 					map_foreach(this.times, function(key, value) {
 						all_keys.push({ key: key, end_time: value.end_time, added_time: value.added_time });
 					});
-					// we prioritize removing the key closest to expiry before the oldest key
 					all_keys.sort(function(a, b) {
 						if (a.end_time) {
 							if (!b.end_time)
@@ -16426,7 +16142,6 @@ var $$IMU_EXPORT$$;
 				var timer = setTimeout(function() {
 					cache.remove(key);
 				}, time * 1000);
-				// Ensures the process can exit in node.js
 				if (is_node && typeof timer !== "number" && "unref" in timer) {
 					timer.unref();
 				}
@@ -16448,7 +16163,6 @@ var $$IMU_EXPORT$$;
 			return has_key;
 		};
 		IMUCache.prototype.get = function(key) {
-			// TODO: maybe renew timeout per-get?
 			var value = map_get(this.data, key);
 			nir_debug("cache", "Cache.get key:", key, deepcopy(value));
 			return value;
@@ -16638,12 +16352,7 @@ var $$IMU_EXPORT$$;
 			waiting: true
 		};
 	};
-	// temporary hack for Instagram returning urls with %00
-	// thanks to fireattack on discord for reporting
 	var is_invalid_url = function(url) {
-		// yes, a null url is technically invalid, but this check is used to detect if it has invalid characters.
-		// it's better to just return false here.
-		// thanks to remlap on discord for noticing that this caused issues for regular instagram posts.
 		if (!url)
 			return false;
 		for (var i = 0; i < url.length; i++) {
@@ -16653,7 +16362,6 @@ var $$IMU_EXPORT$$;
 		}
 		return false;
 	};
-	// https://stackoverflow.com/a/17323608
 	function mod(n, m) {
 		return ((n % m) + m) % m;
 	}
@@ -16666,7 +16374,6 @@ var $$IMU_EXPORT$$;
 		}
 		return base;
 	};
-	// unused, but likely useful
 	function urlsplit(a) {
 		var protocol_split = a.split("://");
 		var protocol = protocol_split[0];
@@ -16701,9 +16408,7 @@ var $$IMU_EXPORT$$;
 	};
 	var norm_url = function(url) {
 		return url
-			// https://www.test.com?test -> https://www.test.com/?test
 			.replace(/^([a-z]+:\/\/[^/]+)(\?.*)/, "$1/$2")
-			// https://www.test.com./ -> https://www.test.com/
 			.replace(/^([a-z]+:\/\/[^/]+\.[^/]+)\.([?#/].*)?$/, "$1$2");
 	};
 	function urljoin(a, b, browser) {
@@ -16712,7 +16417,6 @@ var $$IMU_EXPORT$$;
 		if (b.match(/^[-a-z]*:\/\//) || b.match(/^(?:data|x-raw-image|blob|about|javascript):/))
 			return b;
 		var protocol_split = a.split("://");
-		// FIXME? for URLs like about:blank
 		if (protocol_split.length < 2) {
 			return a;
 		}
@@ -16721,8 +16425,6 @@ var $$IMU_EXPORT$$;
 		var domain = splitted[0];
 		var start = protocol + "://" + domain;
 		if (!browser) {
-			// simple path join
-			// urljoin("http://site.com/index.html", "file.png") = "http://site.com/index.html/file.png"
 			return a.replace(/\/*$/, "") + "/" + b.replace(/^\/*/, "");
 		} else {
 			if (b.length >= 2 && b.slice(0, 2) === "//")
@@ -16731,13 +16433,9 @@ var $$IMU_EXPORT$$;
 				return start + b;
 			if (b.length >= 2 && b.slice(0, 2) === "./")
 				b = b.substring(2);
-			// to emulate the browser's behavior instead
-			// urljoin("http://site.com/index.html", "file.png") = "http://site.com/file.png"
 			if (!a.match(/\/$/))
 				a = a.replace(/^([^?]*)\/.*?$/, "$1/");
 			return urlnorm(a + b.replace(/^\/*/, ""));
-			//return a.replace(/\/[^/]*$/, "/") + b.replace(/^\/*/, "");
-			//return urlnorm(a.replace(/^([^?]*)\/.*?$/, "$1/") + b.replace(/^\/*/, ""));
 		}
 	}
 	var fullurl = function(url, x) {
@@ -16760,7 +16458,6 @@ var $$IMU_EXPORT$$;
 			return basename;
 		var match;
 		if (options.known_ext) {
-			// todo: factor out?
 			match = basename.match(/(.*?)\.(mp4|mpe?g|jpe?g|jfif|png|tiff|og[agv]|m4[av]|web[pm]|mkv|avi|gif|mpd|m3u8|zip)$/i);
 		} else {
 			match = basename.match(/(.*)\.([^.]*)$/);
@@ -16779,16 +16476,13 @@ var $$IMU_EXPORT$$;
 		return mobj;
 	};
 	var fillobj = function(p_obj, p_baseobj) {
-		//if (typeof p_obj === "undefined")
 		var obj = basic_fillobj(p_obj);
 		var baseobj = basic_fillobj(deepcopy(p_baseobj))[0];
-		//var oldobj = deepcopy(obj);
 		for (var i = 0; i < obj.length; i++) {
 			if (typeof (obj[i]) === "undefined") {
 				continue;
 			}
 			var item;
-			// Only copy from baseobj if the urls are the same (or n/a)
 			if (!obj[i].url || !baseobj.url || baseobj.url === obj[i].url) {
 				for (item in baseobj) {
 					if (!(item in obj[i])) {
@@ -16801,7 +16495,6 @@ var $$IMU_EXPORT$$;
 					obj[i][item] = deepcopy(default_object[item]);
 				}
 			}
-			// this is horrible
 			if (obj[i].video && obj[i].media_info.type === "image") {
 				if (obj[i].video === true) {
 					obj[i].media_info = {
@@ -16814,13 +16507,11 @@ var $$IMU_EXPORT$$;
 					};
 				} else {
 					obj[i].media_info = deepcopy(obj[i].video);
-					// what is this usecase?
 					obj[i].media_info.delivery = obj[i].media_info.type;
 					obj[i].media_info.type = "video";
 				}
 			}
 		}
-		//console_log("fillobj", deepcopy(oldobj), deepcopy(obj), deepcopy(baseobj));
 		return obj;
 	};
 	var fillobj_urls = function(urls, obj, overwrite) {
@@ -16863,7 +16554,6 @@ var $$IMU_EXPORT$$;
 			var ext = url.replace(regex, "$2");
 			var basename = url.replace(regex, "$1");
 			var query = url.replace(regex, "$3");
-			//var result = [url];
 			if (!prefer_order)
 				result.push(currentobj);
 			for (var i = 0; i < extensions.length; i++) {
@@ -16919,7 +16609,6 @@ var $$IMU_EXPORT$$;
 		return url;
 	};
 	var encodeuri_ifneeded = function(url) {
-		// TODO: improve
 		if (string_indexof(url, "%") < 0) {
 			return encodeURI(url);
 		}
@@ -16958,13 +16647,11 @@ var $$IMU_EXPORT$$;
 		}
 		return sizes;
 	};
-	// https://stackoverflow.com/a/10073788
 	var zpadnum = function(n, width, z) {
 		z = z || '0';
 		n = n + '';
 		return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
 	};
-	// https://www.w3resource.com/javascript-exercises/javascript-string-exercise-28.php
 	function hex_to_ascii(str1) {
 		var hex = str1.toString();
 		var str = '';
@@ -17013,7 +16700,6 @@ var $$IMU_EXPORT$$;
 		return str.replace(/([\^$])/g, "\\$1");
 	}
 	function get_queries(url, options) {
-		// TODO: handle things like: ?a=b&c=b#&d=e
 		var querystring = url
 			.replace(/#.*/, "")
 			.replace(/^.*?\?/, "");
@@ -17063,8 +16749,6 @@ var $$IMU_EXPORT$$;
 		}
 		var beforequery = url.replace(/^([^#]*?)\?(.*)$/, "$1");
 		var afterquery = url.replace(/^([^#]*?)\?(.*)$/, "$2");
-		// TODO: handle things like: ?a=b&c=b#&d=e
-		// no query string
 		if (beforequery === url)
 			return url;
 		var splitted = afterquery.split("&");
@@ -17160,7 +16844,6 @@ var $$IMU_EXPORT$$;
 				type: "notification",
 				data: jsoned_details
 			}, function(response) {
-				// if there's no onclick
 				if (!response || !response.data)
 					return;
 				if (response.data.action === "clicked") {
@@ -17255,7 +16938,6 @@ var $$IMU_EXPORT$$;
 		});
 	};
 	var check_updates = function(cb) {
-		// Firefox blocks these requests
 		if (false && is_firefox_webextension) {
 			check_updates_firefox(function(data) {
 				if (!data) {
@@ -17282,7 +16964,6 @@ var $$IMU_EXPORT$$;
 		return link;
 	};
 	var check_updates_if_needed = function() {
-		// if last_update_check == 0, it means for some reason it's not able to store values
 		if (!settings.imu_enabled || !settings.check_updates || !current_version || !settings.last_update_check) {
 			return;
 		}
@@ -17303,7 +16984,6 @@ var $$IMU_EXPORT$$;
 						text: _("Update available (%%1)", data.version)
 					};
 					var downloadurl = get_update_url();
-					// FIXME? if !downloadurl, clicking won't close the popup. this might not be a problem though, as it's expected behavior?
 					if (downloadurl) {
 						notify_obj.onclick = function() {
 							open_in_tab_imu({
@@ -17370,9 +17050,6 @@ var $$IMU_EXPORT$$;
 	function run_soon(func) {
 		setTimeout(func, 1);
 	}
-	// bug in chrome, see
-	// https://github.com/qsniyg/maxurl/issues/7
-	// https://our.umbraco.org/forum/using-umbraco-and-getting-started/91715-js-error-when-aligning-content-left-center-right-justify-in-richtext-editor
 	if (is_node || true) {
 		fullurl = function(url, x) {
 			return urljoin(url, x, true);
@@ -17392,7 +17069,6 @@ var $$IMU_EXPORT$$;
 		var blacklist = blacklist_str.split("\n");
 		for (var i = 0; i < blacklist.length; i++) {
 			var current = blacklist[i].replace(/^\s+|\s+$/, "");
-			//console_log(current);
 			if (current.length === 0)
 				continue;
 			if (settings.bigimage_blacklist_engine === "regex") {
@@ -17469,7 +17145,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 		}
-		//console_log(blacklist_regexes);
 	}
 	var parse_headers = function(headerstr) {
 		var headers = [];
@@ -17583,7 +17258,6 @@ var $$IMU_EXPORT$$;
 			return null;
 		return split[2];
 	};
-	// https://stackoverflow.com/a/18639999
 	var makeCRCTable = function() {
 		var c;
 		var crcTable = [];
@@ -17633,7 +17307,6 @@ var $$IMU_EXPORT$$;
 				_this.responseType = data.responseType;
 				_this.responseURL = data.finalUrl;
 				this._response_headers_raw = data.responseHeaders;
-				// todo: set loaded, total, lengthComputable
 			}
 			var event = {
 				currentTarget: _this,
@@ -17717,13 +17390,11 @@ var $$IMU_EXPORT$$;
 			(function(item) {
 				var real_item = real[item];
 				this[item] = function() {
-					//console.log("calling", item, arguments);
 					return real_item.apply(real, arguments);
 				};
 			}).bind(this)(item);
 		}
 		this.send = function(data) {
-			//console.log("sending", data);
 			return real.send(this, data, XMLHttpRequest.do_request);
 		};
 	};
@@ -17737,7 +17408,6 @@ var $$IMU_EXPORT$$;
 					overridden_xhr = false;
 				var endshim = ";return {lib: lib_export, xhr: XMLHttpRequest, overridden_xhr: " + overridden_xhr + "};";
 				if (overridden_xhr) {
-					// inefficient, but it allows multiple overrides for do_request
 					var startshim = "var XMLHttpRequest=null;(function(imu_xhr){XMLHttpRequest=" + custom_xhr_wrap.toString() + ";XMLHttpRequest.do_request = imu_xhr.do_request;})(imu_xhr);imu_xhr = undefined;";
 					return new Function("imu_xhr", startshim + fdata + endshim)({
 						custom_xhr: custom_xhr,
@@ -17748,7 +17418,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 		} else {
-			// doesn't work unfortunately
 			var frame = document_createElement('iframe');
 			frame.srcdoc = ""; //"javascript:0"
 			document.body.appendChild(frame);
@@ -17849,11 +17518,8 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		if (is_extension || is_userscript) {
-			// Unfortunately in these cases it's less clean
-			// Without building separate version of this for each use case, we have to fall back on "eval"ing (through `new Function`)
 			lib_cache.fetch(name, cb, function(done) {
 				if (is_extension) {
-					// Thankfully in this case can query directly from the extension, removing possibility for XSS
 					extension_send_message({
 						type: "get_lib",
 						data: {
@@ -17862,16 +17528,9 @@ var $$IMU_EXPORT$$;
 					}, function(response) {
 						if (!response || !response.data || !response.data.text)
 							return done(null, 0); // 0 instead of false because it will never be available
-						//done(new Function(response.data.text + ";return lib_export;")(), 0);
 						done(run_sandboxed_lib(response.data.text, lib_obj.xhr), 0);
 					});
 				} else {
-					// For the userscript, we have no other choice than to query and run arbitrary JS.
-					// The commit is specified in lib_urls in order to prevent possible incompatibilities.
-					// Unfortunately this still cannot prevent a very dedicated hostile takeover.
-					// This is why we use the dual CRC32 check. Not bulletproof, but much better than nothing.
-					// On my system it takes 6-30ms to do both CRC32 checks, so performance isn't really an issue.
-					// FIXME: Perhaps this is unnecessary? The commit hash should change if the commit changes
 					var lib_url = lib_obj.url;
 					if (!lib_url) {
 						console_error("No URL for library", lib_obj);
@@ -17883,7 +17542,6 @@ var $$IMU_EXPORT$$;
 						} else {
 							var time = lib_obj.archive_time;
 							if (!time) {
-								// fixme: it'd be better to auto-store the script's date somewhere
 								var date = new Date();
 								time = "" + date.getFullYear();
 								time += zpadnum(date.getMonth() + 1, 2);
@@ -17910,18 +17568,15 @@ var $$IMU_EXPORT$$;
 							}
 							var libcontents = result.responseText;
 							if (options.use_webarchive_for_lib) {
-								//var oldlib = libcontents;
 								libcontents = libcontents
 									.replace(/^\s*var _____WB\$wombat\$assign\$function_____[\s\S]*_____WB\$wombat\$assign\$function_____[(].*[)];\n\n/, "")
 									.replace(/\n\n}\n\/\*\s*FILE ARCHIVED ON[\s\S]*/, "")
 									.replace(/(["'])https:\/\/web.archive.org\/web\/[0-9]+(?:[a-z]+_)?\/+(https?:\/\/)/g, "$1$2")
 									.replace(/(["'])\/\/web.archive.org\/web\/[0-9]+(?:[a-z]+_)?\/+https?:(\/\/)/g, "$1$2");
-								//console_log(name, {old: oldlib, new: libcontents});
 							}
 							if (settings.lib_integrity_check) {
 								var is_dev = false;
 								if (false) {
-									// for development (library updates/performance monitoring)
 									is_dev = true;
 									var start_time = 0;
 									if (is_dev) {
@@ -17949,7 +17604,6 @@ var $$IMU_EXPORT$$;
 									console_log("Check time:", Date.now() - start_time);
 							}
 							done(run_sandboxed_lib_safe(libcontents, lib_obj.xhr), 0);
-							//done(new Function(libcontents + ";return lib_export;")(), 0);
 						}
 					});
 				}
@@ -17958,8 +17612,6 @@ var $$IMU_EXPORT$$;
 			return cb(null);
 		}
 	};
-	// imu:begin_exclude
-	// in order to test length/crc32
 	if (false) {
 		for (var lib_name in lib_urls) {
 			(function(lib_name) {
@@ -17973,9 +17625,7 @@ var $$IMU_EXPORT$$;
 			})(lib_name);
 		}
 	}
-	// imu:end_exclude
 	var normalize_whitespace = function(str) {
-		// https://stackoverflow.com/a/11305926
 		return str
 			.replace(/[\u200B-\u200D\uFEFF]/g, '')
 			.replace(/[\u2800]/g, ' ');
@@ -18102,9 +17752,6 @@ var $$IMU_EXPORT$$;
 			.replace(/(\"[^\s:"]+?\":)\s*'([^']*)'(\s*[,}])/g, "$1 \"$2\"$3")
 			.replace(/,\s*}$/, "}");
 	};
-	// note: this is technically incorrect (too loose), as it'll allow things like:
-	// {x: {} y: {}}
-	// this is intentional, as otherwise it grows with exponential complexity ("kvcw*", "kvw?")
 	var js_obj_token_types = {
 		whitespace: /\s+/,
 		jvarname: /[$_a-zA-Z][$_a-zA-Z0-9]*/,
@@ -18137,7 +17784,6 @@ var $$IMU_EXPORT$$;
 		doc: [["object"], ["array"]]
 	};
 	var parse_js_obj = function(objtext, js_obj_token_types) {
-		// for testing purposes
 		/*var is_array = function(x) {
 			return Array.isArray(x);
 		};
@@ -18167,13 +17813,11 @@ var $$IMU_EXPORT$$;
 				}
 			}
 		}
-		//console_log(js_obj_token_types);
 		var times_ran = 0;
 		var token_frequency = {};
 		var stack_frequency = {};
 		var find_token_regex = function(token_type, tt, i) {
 			var text = objtext.substring(i);
-			//console.log(text, tt, i);
 			var match = text.match(tt);
 			if (!match || match.index !== 0) {
 				return null;
@@ -18223,7 +17867,6 @@ var $$IMU_EXPORT$$;
 				}];
 		};
 		var find_token = function(token_type, i, stack) {
-			//console_log(token_type, i);
 			times_ran++;
 			if (!(token_type in token_frequency))
 				token_frequency[token_type] = 0;
@@ -18235,7 +17878,6 @@ var $$IMU_EXPORT$$;
 				return find_token_sliteral(token_type, i);
 			}
 			var tt = js_obj_token_types[token_type];
-			//console.log(token_type, tt);
 			if (tt.type === "and") {
 				return find_token_array_and(tt, i, stack);
 			} else if (tt.type === "or") {
@@ -18251,18 +17893,14 @@ var $$IMU_EXPORT$$;
 				var lastchar = token_type[token_type.length - 1];
 				var minuslast = token_type.substring(0, token_type.length - 1);
 				if (lastchar === "?") {
-					//console.log("[START ?]", token_type, i, stack);
 					var token = find_token(minuslast, i, stack + 1);
-					//console.log("[END ?]", token_type, i, stack, token);
 					if (!token || token.length === 0)
 						continue;
 					array_extend(tokens, token);
 					i = token[token.length - 1].ni;
 				} else if (lastchar === "*") {
 					while (true) {
-						//console.log("[START *]", token_type, i, stack);
 						var token = find_token(minuslast, i, stack + 1);
-						//console.log("[END *]", token_type, i, stack, token);
 						if (!token || token.length === 0)
 							break;
 						array_extend(tokens, token);
@@ -18298,7 +17936,6 @@ var $$IMU_EXPORT$$;
 	};
 	var fixup_js_obj_proper = function(objtext) {
 		var parsed = parse_js_obj(objtext, js_obj_token_types);
-		//console.log(parsed);
 		if (!parsed)
 			throw "unable to parse";
 		var token_types = {
@@ -18395,7 +18032,6 @@ var $$IMU_EXPORT$$;
 			});
 		}
 	};
-	// cookie: postpagebeta=0; postpagebetalogged=0
 	common_functions["fetch_imgur_webpage"] = function(do_request, api_cache, headers, url, cb) {
 		var cache_key = "imgur_webpage:" + url.replace(/^https?:\/\/(?:www\.)?imgur/, "imgur").replace(/[?#].*/, "");
 		var apply_headers = false;
@@ -18450,7 +18086,6 @@ var $$IMU_EXPORT$$;
 							apply_headers = true;
 							return real_fetch(done);
 						}
-						// Only cache it for 15 seconds (helpful if the user logs in)
 						done(retobj, 15);
 					} else {
 						retobj.found_match = true;
@@ -18491,15 +18126,11 @@ var $$IMU_EXPORT$$;
 		});
 	};
 	common_functions["imgur_api_fetch_album_media"] = function(do_request, api_cache, type, id, cb) {
-		// another option: https://api.imgur.com/3/image/id?client_id=...
-		//                 https://api.imgur.com/3/album/id?client_id=...
-		// works for logged in accounts, does it work for anonymous accounts too? is there a reason to use this instead?
 		if (type === "album")
 			type = "albums";
 		else if (type === "image")
 			type = "media";
 		var endpoint = "https://api.imgur.com/post/v1/" + type + "/" + id;
-		// FIXME: is adconfig,account required?
 		var query = { include: "media,adconfig,account" };
 		return common_functions["imgur_run_api"](do_request, api_cache, endpoint, query, cb);
 	};
@@ -18520,8 +18151,6 @@ var $$IMU_EXPORT$$;
 				url += "a/";
 			url += id;
 			common_functions["fetch_imgur_webpage"](options.do_request, api_cache, null, url, function(data) {
-				// either new webpage or nsfw
-				//console_log(data);
 				if (!data || !data.found_match || !data.imageinfo) {
 					return common_functions["imgur_api_fetch_album_media"](options.do_request, api_cache, type, id, finalcb);
 				} else {
@@ -18533,29 +18162,21 @@ var $$IMU_EXPORT$$;
 		}
 	};
 	common_functions["imgur_normalize"] = function(obj) {
-		// v1
 		if (!("media" in obj)) {
 			if (obj.album_images) {
-				// old web
 				obj.media = obj.album_images.images;
 			} else if (obj.images) {
-				// v3
 				obj.media = obj.images;
 			}
 		}
-		// v1
 		if (!("is_album" in obj)) {
-			// old web
 			if ("album_images" in obj)
 				obj.is_album = true;
 		}
-		// v1
 		if (!("url" in obj)) {
 			if (obj.link) {
-				// v3
 				obj.url = obj.link;
 			} else if (obj.hash) {
-				// old web
 				var prefix = "https://imgur.com/";
 				if (obj.is_album) {
 					prefix += "a/";
@@ -18568,24 +18189,19 @@ var $$IMU_EXPORT$$;
 	common_functions["imgur_image_to_obj"] = function(options, baseobj, json) {
 		var retobj = [];
 		try {
-			//if (!json.is_album && json.media && json.media.length === 1)
-			//	json = json.media[0];
 			var metadata = json;
-			// api
 			if (json.metadata)
 				metadata = json.metadata;
 			if (metadata.description || metadata.title) {
 				baseobj.extra.caption = metadata.description || metadata.title;
 			}
 			if (!json.hash) {
-				// v1?
 				if (json.id) {
 					json.hash = json.id;
 				}
 			}
 			baseobj.extra.page = "https://imgur.com/" + json.hash;
 			if (json.ext) {
-				// v1?
 				if (json.ext[0] !== ".")
 					json.ext = "." + json.ext;
 				if (json.ext.toLowerCase() === ".jpeg")
@@ -18595,7 +18211,6 @@ var $$IMU_EXPORT$$;
 			if (json.hash && json.ext) {
 				realfilename = json.hash + json.ext;
 				var base1obj = deepcopy(baseobj);
-				// v1
 				if (("rule_specific" in options) && ("imgur_filename" in options.rule_specific) && options.rule_specific.imgur_filename) {
 					if (json.name)
 						base1obj.filename = json.name;
@@ -18610,9 +18225,7 @@ var $$IMU_EXPORT$$;
 					obj1.url = "https://i.imgur.com/" + json.hash + ".jpg";
 					retobj.push(obj1);
 				} else {
-					// Prefer video if possible
 					var animated = metadata.is_animated || json.animated;
-					// fixme: prefer_video isn't in the api version
 					if (animated && (json.prefer_video || true)) {
 						var newobj = deepcopy(base1obj);
 						newobj.url = "https://i.imgur.com/" + json.hash + ".mp4";
@@ -18622,8 +18235,6 @@ var $$IMU_EXPORT$$;
 					retobj.push(obj);
 				}
 			}
-			// (old) webpage
-			// doesn't work anymore
 			if (false && json.source && /^https?:\/\//.test(json.source)) {
 				if (!("rule_specific" in options) || !("imgur_source" in options.rule_specific) || options.rule_specific.imgur_source === true) {
 					retobj.unshift({ url: json.source });
@@ -18637,7 +18248,6 @@ var $$IMU_EXPORT$$;
 	};
 	common_functions["deviantart_url_from_id"] = function(do_request, api_cache, id, cb) {
 		if (typeof id === "string" && /^[a-z0-9]+$/.test(id) && id.length === 7 && id[0] === "d") {
-			// 28298170368.toString(36) = "d000000"
 			var numerical_id = parseInt(id, 36) - 28298170368;
 			return cb("https://deviantart.com/a/art/" + numerical_id);
 		} else {
@@ -18663,9 +18273,6 @@ var $$IMU_EXPORT$$;
 	};
 	common_functions["wix_image_info"] = function(url) {
 		var obj = {};
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/06653b48-43c3-403f-9d72-c1c5519db560/ddl6lkp-cde05779-5a0a-47d8-8d43-f31a063fd30e.jpg/v1/fill/w_623,h_350,q_100/into_the_light_by_pajunen_ddl6lkp-350t.jpg
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/faa48d2d-12c2-43d1-bf23-b5e99857825b/ddo0eau-c742e0f9-07f9-4a22-8d47-933e9fd3fb2b.png/v1/crop/w_244,h_350,x_0,y_0,scl_0.066812705366922,q_70,strp/railway_road_to_the_stars_by_ellysiumn_ddo0eau-350t.jpg
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/e04c7e93-4504-4dbe-91f9-fd353fc145f2/dcx503r-30c02b72-c26d-4732-9c9f-14fcbc633aaa.jpg
 		var match = url.match(/^[a-z]+:\/\/[^/]+\/+(?:intermediary\/+)?([if])\/+[-0-9a-f]{20,}\/+[^/?]+([?#].*)?$/);
 		if (match) {
 			if (match[3] && match[3][0] === "?") {
@@ -18711,9 +18318,6 @@ var $$IMU_EXPORT$$;
 			console_log("wix_compare (info1:", info1, "info2:", info2, ")");
 		if (!info1 || !info2)
 			return null;
-		// needed to avoid constant reloading between /intermediary/ and /f/.*?token
-		// thanks to Wisedrow on discord for reporting
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/4ac770c0-c37b-43a0-866f-2a2707ea61c7/d854mkr-cf30cc53-6b99-4651-916d-1703c943255c.jpg
 		if (info1.original && info2.original) {
 			if (info2.has_token) {
 				return url1;
@@ -18745,15 +18349,10 @@ var $$IMU_EXPORT$$;
 		if (newsrc !== src) {
 			return newsrc;
 		}
-		// thanks to MrSeyker on greasyfork: https://greasyfork.org/en/scripts/36662-image-max-url/discussions/34976#comment-160842
 		newsrc = src.replace(/(:\/\/[^/]*\/f\/+[-0-9a-f]{36}\/+[0-9a-z]+-[-0-9a-f]{20,}\.(?:png|PNG)\/+v1\/+fill\/+[^/]+\/+[^/?#]+)\.[^/.?#]+(\?.*)?$/, "$1.png$2");
 		if (newsrc !== src) {
 			return newsrc;
 		}
-		// thanks to MrSeyker on github: https://github.com/qsniyg/maxurl/issues/616#issuecomment-762570739
-		// https://www.deviantart.com/hugotendaz/art/Rosetta-The-Best-Buns-Cartoony-PinUp-Comm-729023803
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/a776a3e5-3e6f-4f61-89b7-1724ab9c2567/dc21id7-2610a389-46ea-4388-83ec-e144cfa0b73c.jpg?token=... -- 71kb
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/intermediary/f/a776a3e5-3e6f-4f61-89b7-1724ab9c2567/dc21id7-2610a389-46ea-4388-83ec-e144cfa0b73c.jpg -- 43kb, visible artifacting
 		if (!/^[a-z]+:\/\/[^/]+\/+f\/+[-0-9a-f]{36}\/+[a-z0-9]{5,}-[-0-9a-f]{36}\.[^/.?#]+\?token=[^&]+(?:#.*)?$/.test(src)) {
 			newsrc = src.replace(/(:\/\/[^/]*\/)(f\/+[-0-9a-f]{36}\/+.*?)[?&]token=.*$/, "$1intermediary/$2");
 			if (newsrc !== src) {
@@ -18770,7 +18369,6 @@ var $$IMU_EXPORT$$;
 		}
 		return null;
 	};
-	// FIXME: this is basically replicating bigimage_recursive
 	common_functions["wix_bigimage"] = function(src) {
 		var urls = [];
 		while (src) {
@@ -18780,10 +18378,6 @@ var $$IMU_EXPORT$$;
 		return urls;
 	};
 	common_functions["deviantart_fullimage"] = function(options, api_cache, src, id, cb) {
-		// animated:
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/i/db0d85b1-b8b9-4790-bef0-121edb2dce7d/ddabn1h-5342115a-06a6-4f89-9c54-a2843719553a.jpg/v1/fit/w_150,h_150,q_70,strp/spaghetti_high_by_f1x_2_ddabn1h-150.jpg
-		// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/i/db0d85b1-b8b9-4790-bef0-121edb2dce7d/ddabn1h-5342115a-06a6-4f89-9c54-a2843719553a.jpg -- 1920x1080, but original size says 1280x720 and is animated. however, it doesn't look upscaled either
-		//   https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/db0d85b1-b8b9-4790-bef0-121edb2dce7d/ddabn1h-1d7ac558-1fa8-4943-a3b6-0ad8b06be106.gif
 		common_functions["deviantart_page_from_id"](options.do_request, api_cache, id, function(result) {
 			if (!result) {
 				return cb(null);
@@ -18802,17 +18396,14 @@ var $$IMU_EXPORT$$;
 			var deviationid = result.finalUrl.replace(/.*-([0-9]+)(?:[?#].*)?$/, "$1");
 			if (deviationid === result.finalUrl)
 				deviationid = null;
-			// Support the redesign
 			var initialstate = result.responseText.match(/window\.__INITIAL_STATE__\s*=\s*JSON\.parse\((".*")\);\s*(?:window\.|<\/script)/);
 			if (initialstate && deviationid) {
 				try {
-					// for some reason DA escapes ', breaking JSON.parse
 					initialstate = JSON_parse(JSON_parse(initialstate[1].replace(/\\'/g, "'")));
 				} catch (e) {
 					console.error(e, { initialstate: initialstate, result: result });
 					throw e;
 				}
-				//console_log(initialstate);
 				try {
 					var entities = initialstate["@@entities"];
 					var deviation = entities.deviation[deviationid];
@@ -18841,8 +18432,6 @@ var $$IMU_EXPORT$$;
 						for (var i = types.length - 1; i >= 0; i--) {
 							var link = null;
 							var tokenid = 0;
-							// https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/40458dca-4360-4b4b-8aca-ba831f8db36d/ddsdflz-9484b31e-187e-4761-9724-6853698242a7.png/v1/fill/w_712,h_1123,q_100/morning_sun_by_pegaite_ddsdflz-pre.png
-							// https://www.deviantart.com/pegaite/art/Morning-Sun-833716295
 							if ("r" in types[i] && types[i].r < deviation.media.token.length)
 								tokenid = types[i].r;
 							var tokenq = "?token=" + deviation.media.token[tokenid];
@@ -18851,11 +18440,8 @@ var $$IMU_EXPORT$$;
 							} else if (types[i].b) { // e.g. animated gifs
 								link = types[i].b + tokenq;
 							} else if (types[i].t === "fullview" && "r" in types[i]) {
-								// TODO: improve check?
 								link = deviation.media.baseUri + tokenq;
 							}
-							// Occasionally this exists for some images, where it instead has:
-							// s: "https://st.deviantart.net/misc/noentrythumb-200.png" (for t: "social_preview")
 							if (!link)
 								continue;
 							var newurl = common_functions["wix_compare"](link, maxurl, options.rule_specific.deviantart_prefer_size);
@@ -18870,7 +18456,6 @@ var $$IMU_EXPORT$$;
 					if (false && image_info && image_info.original) {
 						ourobj.is_original = true;
 					}
-					// basically: array_prepend(urls, suburls);
 					array_extend(suburls, urls);
 					urls = suburls;
 					if (deviationExtended) {
@@ -18886,7 +18471,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (false) {
-				// remove duplicates (todo: factor this out?)
 				var prevurls = new_set();
 				for (var i = 0; i < urls.length; i++) {
 					if (set_has(prevurls, urls[i].url)) {
@@ -19080,27 +18664,16 @@ var $$IMU_EXPORT$$;
 			return image_url;
 		if (typeof image_url === "number")
 			return image_url; // e.g. img_i: 0, 1, 2
-		// story id
 		var newurl = image_url.replace(/.*\/stories\/+[^/]+\/+([0-9]+)\/*(?:[?#].*)?$/, "$1");
 		if (newurl !== image_url)
 			return newurl;
-		// thanks to robindz on github for reporting: https://github.com/qsniyg/maxurl/issues/983
-		// https://scontent-bru2-1.cdninstagram.com/v/t51.2885-15/e35/271760634_141729454899363_6673546970842196313_n.webp.jpg
 		newurl = image_url.replace(/.*\/([^/.?#]*)\.[^/]*(?:[?#].*)?$/, "$1");
 		if (newurl === image_url)
 			return null;
 		return newurl;
 	};
 	common_functions["instagram_norm_url"] = function(src) {
-		// thanks to remlap on github: https://github.com/qsniyg/maxurl/issues/239
-		// https://github.com/qsniyg/maxurl/issues/522
-		// some info: https://sorsnce.com/2020/04/15/the-truth-about-social-media-content-delivery-networks/
-		// _nc_cat is useless, but doesn't appear to change anything, so let's not remove it to avoid useless redirects
-		// no idea if ig_cache_key does anything or not, but since we're changing the url, perhaps, from the name, this could lead to issues?
-		// no idea what efg or _nc_rid do, haven't seen them change anything yet
 		return remove_queries(src, ["se", "ig_cache_key"]);
-		//return remove_queries(src, ["se", "_nc_cat", "_nc_rid", "efg", "ig_cache_key"]);
-		// these remove_queries calls are separated in case the next one doesn't work.
 		/*newsrc = remove_queries(src, ["se"]);
 		if (newsrc !== src)
 			return newsrc;
@@ -19114,26 +18687,16 @@ var $$IMU_EXPORT$$;
 			obj = {
 				url: obj
 			};
-		// https://github.com/qsniyg/maxurl/issues/719
-		// if referer/origin is not present (or not set to instagram.com), "access-control-allow-origin: *" will not exist in the response headers
-		// if one is set to something other than instagram.com, it will also fail
 		if (!obj.headers)
 			obj.headers = {};
-		// referer = instagram.com is crucial to avoid throttling (thanks to remlap for reporting)
 		headerobj_set(obj.headers, "Referer", "https://www.instagram.com/");
-		// origin apparently seems to throttle? is this placebo?
-		//headerobj_set(obj.headers, "Origin", "https://www.instagram.com"); // is this needed?
-		// instagram seems to throttle without these?
 		if (obj.video)
 			headerobj_set(obj.headers, "Sec-Fetch-Dest", "video");
 		else
 			headerobj_set(obj.headers, "Sec-Fetch-Dest", "image");
 		headerobj_set(obj.headers, "Sec-Fetch-Mode", "cors");
 		headerobj_set(obj.headers, "Sec-Fetch-Site", "cross-site");
-		// in order to allow the extension to override allow-access-control-origin
 		obj.need_credentials = false;
-		// is this needed to avoid throttling?
-		//obj.max_chunks = 1;
 		return obj;
 	};
 	common_functions["instagram_parse_el_info"] = function(api_cache, do_request, use_app_api, dont_use_web, prefer_video_quality, info, host_url, cb) {
@@ -19149,8 +18712,6 @@ var $$IMU_EXPORT$$;
 		};
 		var id_to_shortcode, shortcode_to_id;
 		var shortcode_table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-		// TODO: don't use recursion
-		// FIXME: use library instead of BigInt
 		var _id_to_shortcode = function(id) {
 			var sixtyfour = BigInt(64);
 			if (id < sixtyfour) {
@@ -19209,7 +18770,6 @@ var $$IMU_EXPORT$$;
 		var query_ig_page = function(url, cb) {
 			if (!do_request)
 				return cb(null);
-			// Normalize the URL to reduce duplicate cache checks
 			url = url
 				.replace(/[?#].*/, "")
 				.replace(/([^/])$/, "$1/")
@@ -19277,8 +18837,6 @@ var $$IMU_EXPORT$$;
 							ids[id] = 0;
 						ids[id]++;
 					}
-					// FIXME: is this needed?
-					// find most popular ID. I've only observed 2 ids per page, both are the same
 					var id_keys = Object.keys(ids);
 					id_keys.sort(function(a, b) {
 						return ids[b] - ids[a];
@@ -19298,7 +18856,6 @@ var $$IMU_EXPORT$$;
 						return;
 					try {
 						var parsed = JSON_parse(result.responseText).user;
-						// 5 minutes since they can change their profile pic often
 						done(parsed, 5 * 60);
 					} catch (e) {
 						console_log("instagram_uid_to_profile", result);
@@ -19309,7 +18866,6 @@ var $$IMU_EXPORT$$;
 			});
 		};
 		var get_instagram_cookies = function(cb) {
-			// For now, we'll disable this as it doesn't appear to be needed
 			if (true) {
 				cb(null);
 			} else {
@@ -19318,7 +18874,6 @@ var $$IMU_EXPORT$$;
 					return cb(cookie_cache.get(cookie_cache_key));
 				}
 				cb(null);
-				// commenting out due to options not existing
 				/*if (options.get_cookies) {
 					options.get_cookies("https://www.instagram.com/", function(cookies) {
 						cookie_cache.set(cookie_cache_key, cookies);
@@ -19335,14 +18890,7 @@ var $$IMU_EXPORT$$;
 				return cb(null);
 			}
 			var headers = {
-				//"User-Agent": "Instagram 10.26.0 (iPhone7,2; iOS 10_1_1; en_US; en-US; scale=2.00; gamut=normal; 750x1334) AppleWebKit/420+",
-				//"User-Agent": "Instagram 10.26.0 Android (23/6.0.1; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US)",
-				// thanks to ambler on discord for reporting, earlier UAs don't receive stories anymore
-				//"User-Agent": "Instagram 146.0.0.27.125 Android (23/6.0.1; 640dpi; 1440x2560; samsung; SM-G930F; herolte; samsungexynos8890; en_US)",
-				//"User-Agent": "Instagram 146.0.0.27.125 Android (30/11; 420dpi; 2678x1080; samsung; SM-G988U1; z3q; qcom; en_US)", // made up
-				// from instaloader:
 				"User-Agent": "Instagram 146.0.0.27.125 (iPhone12,1; iOS 13_3; en_US; en-US; scale=2.00; 1656x3584; 190542906)",
-				//"User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-T860 Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/87.0.4280.101 Mobile Safari/537.36 Instagram 168.0.0.40.355 Android (29/10; 360dpi; 2560x1492; samsung; SM-T860; gts6lwifi; qcom; en_US; 261079769)",
 				"X-IG-Capabilities": "36oD",
 				"Accept": "*/*",
 				"Accept-Language": "en-US,en;q=0.8",
@@ -19370,11 +18918,9 @@ var $$IMU_EXPORT$$;
 				if (!wwwclaim) {
 					console_warn("Unable to find value for x-ig-www-claim header");
 				}
-				// https://www.instagram.com/static/bundles/es6/ConsumerLibCommons.js/...
 				var headers = {
 					"Accept": "*/*",
 					"X-ASBD-ID": "198387",
-					// not always sent though?
 					"X-IG-App-ID": "936619743392459",
 					"Origin": "https://www.instagram.com",
 					"Referer": "https://www.instagram.com/",
@@ -19394,7 +18940,6 @@ var $$IMU_EXPORT$$;
 			};
 			var wwwclaim = null;
 			if (get_localstorage) {
-				// https://www.instagram.com/static/bundles/es6/ConsumerLibCommons.js/...
 				get_localstorage("https://www.instagram.com/", ["www-claim-v2"], function(data) {
 					if (data && data["www-claim-v2"]) {
 						wwwclaim = data["www-claim-v2"];
@@ -19563,10 +19108,8 @@ var $$IMU_EXPORT$$;
 		};
 		var profile_to_url = function(profile) {
 			try {
-				// Try using the app's API
 				return profile.hd_profile_pic_url_info.url;
 			} catch (e) {
-				// Try using the normal browser json
 				try {
 					return profile.profile_pic_url;
 				} catch (e) {
@@ -19617,8 +19160,6 @@ var $$IMU_EXPORT$$;
 			return void 0;
 		};
 		var get_shortcode = function(item) {
-			// thanks to robindz on github: https://github.com/qsniyg/maxurl/issues/983
-			// shortcode was used for ajax, but new version seems to use code
 			var shortcode = item.shortcode || item.code;
 			return shortcode || null;
 		};
@@ -19635,7 +19176,6 @@ var $$IMU_EXPORT$$;
 			}
 		};
 		var get_username = function(item) {
-			// user = app, owner = graphql
 			var user_obj = item.user || item.owner;
 			if (user_obj && user_obj.username) {
 				return user_obj.username;
@@ -19654,7 +19194,6 @@ var $$IMU_EXPORT$$;
 			return null;
 		};
 		var get_id = function(item) {
-			// app api & story graphql api (https://i.instagram.com/api/v1/feed/reels_media/?reel_ids=...)
 			if (item.id && typeof item.id === "string")
 				return item.id.replace(/_[0-9]+$/, "");
 			if (item.pk)
@@ -19672,7 +19211,6 @@ var $$IMU_EXPORT$$;
 				}
 				if (string_indexof(objarr[i].src, imageid) > 0)
 					return objarr[i];
-				// stories
 				if (objarr[i].id === imageid)
 					return objarr[i];
 			}
@@ -19697,11 +19235,6 @@ var $$IMU_EXPORT$$;
 			}
 			return retobj;
 		};
-		// known parts:
-		//   v -- beginning of url
-		//   t51.2885-15
-		//   e35
-		//   c118.0.688.688a -- crops the image
 		var instagram_get_url_parts = function(src) {
 			var parts = src.replace(/^[a-z]+:\/\/[^/]+\/+/, "").replace(/\/[^/]+(?:[?#].*)?$/, "");
 			parts = parts.split(/\/+/g);
@@ -19715,10 +19248,8 @@ var $$IMU_EXPORT$$;
 					return;
 				newparts.push(part);
 			});
-			// thanks to remlap for reporting
 			var queries = get_queries(src);
 			if (queries && queries.stp) {
-				// c0.177.1440.1440a_dst-jpg_e35_s150x150
 				var transforms = queries.stp.split("_");
 				array_foreach(transforms, function(part) {
 					if (/^e[0-9]+$/.test(part))
@@ -19741,9 +19272,6 @@ var $$IMU_EXPORT$$;
 				return corrected_height;
 			};
 			var candidates_sorter = function(a, b) {
-				// thanks to robindz on github: https://github.com/qsniyg/maxurl/issues/1000
-				// https://www.instagram.com/p/B7AXLsplw6Y/
-				// https://www.instagram.com/p/B8BFW14Ffwz/
 				if (!a.is_unprocessed || !b.is_unprocessed) {
 					if (a.is_unprocessed)
 						return -1;
@@ -19796,8 +19324,6 @@ var $$IMU_EXPORT$$;
 					for (var i = 0; i < videos.length; i++) {
 						videos[i].corrected_height = get_corrected_height(img, videos[i]);
 						var size = videos[i].width * videos[i].corrected_height;
-						// >= because for some reason, in stories, type 102==103, but higher quality than 101 (all same dimensions)
-						// thanks to remlap on discord for reporting
 						if (size >= maxsize) {
 							maxsize = size;
 							maxobj = videos[i];
@@ -19846,26 +19372,16 @@ var $$IMU_EXPORT$$;
 				if (found_image) {
 					var found_size = found_image.largest.width * found_image.largest.height;
 					var our_size = width * height;
-					// fixme: why is this check even here? it breaks width=0, height=0 videos
 					if (our_size <= found_size || true)
 						return;
 				}
 				if (node.video_url) {
-					// width/height corresponds to the image, not the video
-					// apparently not anymore?
-					// https://www.instagram.com/p/CAIJRpshE0z/ (thanks to fireattack on discord)
-					// https://www.instagram.com/p/CAatETTofMK/ graphql returns 640x640 but states it to be 750x750. app api returns 720x720, but is of a lower quality than 640x640 (thanks to remlap and Regis on discord)
-					//width = 0;
-					//height = 0;
-					// This is a terrible hack, but it works
 					if (width > 640) {
 						var ratio = 640. / width;
 						vwidth = width * ratio;
 						vheight = height * ratio;
 					}
 				}
-				// hack to work around an issue in instagram's servers where they have null characters in their urls
-				// thanks to fireattack on discord for reporting
 				if (is_invalid_url(node.video_url) || is_invalid_url(image)) {
 					width = 0;
 					height = 0;
@@ -19932,7 +19448,6 @@ var $$IMU_EXPORT$$;
 			} else if (image.total_images && "i" in image && !isNaN(image.i) && image.page) {
 				var links = [];
 				album_info = { "type": "links", "links": links };
-				// stupid hack, but 1 because !0 == !image_id == null
 				for (var i = 1; i < image.total_images + 1; i++) {
 					links.push({
 						url: image.page + "#imu-i=" + i,
@@ -19962,13 +19477,11 @@ var $$IMU_EXPORT$$;
 				extra: deepcopy(extra),
 				album_info: deepcopy(album_info)
 			});
-			// set true to overwrite, as the cdninstagram headers are critical
 			return fillobj_urls(obj, common_functions["set_cdninstagram_obj"]({}), true);
 		};
 		var image_meld_largest = function(image) {
 			if (!image.smallest)
 				return image;
-			//console_log(image.largest, image.smallest);
 			image = deepcopy(image);
 			var largest = image.largest;
 			var smallest = image.smallest;
@@ -19984,7 +19497,6 @@ var $$IMU_EXPORT$$;
 				smallest.video_width = largest_vw;
 				smallest.video_height = largest_vh;
 			}
-			//console_log(largest, smallest);
 			return {
 				largest: largest,
 				smallest: smallest
@@ -19996,17 +19508,13 @@ var $$IMU_EXPORT$$;
 			var obj = [];
 			var preobj = [];
 			image = image_meld_largest(image);
-			// obj= is needed because of fillobj_urls in raw_image_to_obj
 			obj = raw_image_to_obj(image.largest, obj, preobj);
 			if (image.smallest)
 				obj = raw_image_to_obj(image.smallest, obj, preobj);
 			array_extend(preobj, obj);
-			// TODO: maybe put videos before images?
 			return preobj;
 		};
 		var cache_graphql_post = function(edge) {
-			// disable cache for now
-			// the PostPage result differs quite significantly from the ProfilePage result
 			return;
 			var shortcode = get_shortcode(edge);
 			if (shortcode) {
@@ -20023,7 +19531,6 @@ var $$IMU_EXPORT$$;
 				var entry_data = shareddata.entry_data;
 				if ("ProfilePage" in entry_data) {
 					var edges = entry_data.ProfilePage[0].graphql.user.edge_owner_to_timeline_media.edges;
-					// todo: also cache edge_felix_video_timeline to avoid requesting videos
 					for (var i = 0; i < edges.length; i++) {
 						var edge = edges[i].node;
 						cache_graphql_post(edge);
@@ -20121,7 +19628,6 @@ var $$IMU_EXPORT$$;
 					return cb(null);
 				}
 				try {
-					//media.id + "_" + media.owner.id
 					mediainfo_api(media_id, function(app_response) {
 						var images = [];
 						var images_small = [];
@@ -20172,15 +19678,12 @@ var $$IMU_EXPORT$$;
 									var app_size = images_app[i].width * images_app[i].height;
 									var graphql_size = images_graphql[i].width * images_graphql[i].height;
 									if (graphql_size > app_size) {
-										//console_log("Using graphql image", images[i], images_graphql[i]);
 										images[i] = images_graphql[i];
 										images_small[i] = images_app[i];
 									} else {
 										images[i] = images_app[i];
 										images_small[i] = images_graphql[i];
 									}
-									// sometimes videos have higher quality for graphql, even though it's smaller (640 vs 720)
-									// relevant issue: https://github.com/qsniyg/maxurl/issues/547
 									(function(i) {
 										if (!prefer_video_quality || !images_app[i].video)
 											return;
@@ -20190,7 +19693,6 @@ var $$IMU_EXPORT$$;
 											images_small[i].video
 										], function(url) {
 											processed++;
-											// awful hack
 											if (url === images[i].video) {
 												images[i].video_width = 10000;
 												images[i].video_height = 10000;
@@ -20199,8 +19701,6 @@ var $$IMU_EXPORT$$;
 												images_small[i].video_height = 10000;
 											}
 											if (processed >= total) {
-												// run_soon, because find_actual_largest_image might use cached values, therefore running final2 before images/images_small has been filled
-												// thanks to Speedy on discord for reporting
 												run_soon(final2);
 											}
 										}, {
@@ -20227,7 +19727,6 @@ var $$IMU_EXPORT$$;
 						if (need_graphql) {
 							request_ig_post(post_url, shortcode, function(media) {
 								if (media) {
-									//images_graphql = get_maxsize_graphql(media);
 									images_graphql = get_maxsize_app(media);
 								}
 								final();
@@ -20342,7 +19841,6 @@ var $$IMU_EXPORT$$;
 		return newel;
 	};
 	common_functions["instagram_get_image_src_from_el"] = function(el) {
-		// try image id from gallery helper
 		if (el.hasAttribute("data-imu-data")) {
 			try {
 				var json = JSON_parse(el.getAttribute("data-imu-data"));
@@ -20353,7 +19851,6 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		if (el.tagName === "VIDEO") {
-			// use the poster instead as the larger video urls differ
 			return el.poster || el.currentSrc || el.src;
 		} else if (el.tagName === "IMG") {
 			return el.src;
@@ -20387,13 +19884,11 @@ var $$IMU_EXPORT$$;
 				console_error("Unable to parse data-imu-info for", element);
 			}
 		}
-		// check for links first
 		var current = element;
 		while ((current = current.parentElement)) {
 			if (current.tagName !== "A")
 				continue;
 			if (current.href.match(/:\/\/[^/]+\/+(?:[^/]+\/+)?(?:p|tv|reel)\//)) {
-				// link to post
 				possible_infos.push({
 					type: "post",
 					subtype: "link",
@@ -20402,7 +19897,6 @@ var $$IMU_EXPORT$$;
 					element: current
 				});
 			} else if (current.href.match(/:\/\/[^/]+\/+[^/]+(?:\/+(?:[?#].*)?)?$/)) {
-				// link to profile (e.g. for someone who comments on a post)
 				possible_infos.push({
 					type: "profile",
 					subtype: "link",
@@ -20413,13 +19907,8 @@ var $$IMU_EXPORT$$;
 		}
 		current = element;
 		while ((current = current.parentElement)) {
-			// profile image
-			// a better way would be to check the username from the h2 > a (title, href, innerText)
 			if (current.tagName === "HEADER") {
 				var sharedData = null;
-				// Still keep this code because this way we can know it exists?
-				// We can't use this directly because the user might have switched the profile they're currently viewing
-				// Jun 29 2022: Disabling because _sharedData no longer exists
 				if (false) {
 					var scripts = document.getElementsByTagName("script");
 					for (var i = 0; i < scripts.length; i++) {
@@ -20460,7 +19949,6 @@ var $$IMU_EXPORT$$;
 					}
 					if (!username) {
 						try {
-							// There are 2 h1's, the first should be the username (the second is the person's "name")
 							username = current.querySelector("section h1").innerText;
 						} catch (e) {
 							console_error(e);
@@ -20481,9 +19969,7 @@ var $$IMU_EXPORT$$;
 					});
 				}
 			}
-			// popup
 			if ((current.tagName === "DIV" && current.getAttribute("role") === "dialog") ||
-				// post page
 				(current.tagName === "BODY" && host_url.match(/:\/\/[^/]*\/+(?:[^/]+\/+)?(?:p|tv|reel)\//))) {
 				possible_infos.push({
 					type: "post",
@@ -20493,7 +19979,6 @@ var $$IMU_EXPORT$$;
 					element: current
 				});
 			}
-			// home
 			if (current.tagName === "ARTICLE" && host_url.match(/:\/\/[^/]+\/+(?:[?#].*)?$/)) {
 				var timeel = current.querySelector("a > time");
 				if (!timeel)
@@ -20514,10 +19999,7 @@ var $$IMU_EXPORT$$;
 					}
 				}
 			}
-			// stories
-			// https://www.instagram.com/stories/hollyearl__/2271839116690161119/
 			if (current.tagName === "BODY" && host_url.match(/:\/\/[^/]*\/+stories\/+([^/]*)(?:\/+[0-9]+)?\/*(?:[?#].*)?$/)) {
-				// try to find image instead of video because video ids change for app stories
 				var newel = common_functions["instagram_get_el_for_imageid"](element);
 				possible_infos.push({
 					type: "story",
@@ -20578,11 +20060,9 @@ var $$IMU_EXPORT$$;
 		var poster = el.poster;
 		if (!poster)
 			return null;
-		// note that the numbers here corresponds to the media id, not the tweet id, so it can't be used
 		if (!/\/ext_tw_video_thumb\/+[0-9]+\/+pu\/+img\//.test(poster))
 			return null;
 		var href = window.location.href;
-		// embedded video
 		var match = href.match(/\/i\/+videos\/+tweet\/+([0-9]+)(?:[?#].*)?$/);
 		if (match) {
 			return {
@@ -20673,17 +20153,14 @@ var $$IMU_EXPORT$$;
 		});
 	};
 	common_functions["snap_norm_obj"] = function(obj) {
-		// ids are not very human-readable, maybe add an option?
 		var match = obj.url.match(/:\/\/[^/]+\/+[0-9a-f]{2}\/+([^/]{10,})\//);
 		if (match) {
-			// = causes issues with ffmpeg (thanks to remlap on discord for reporting), - can cause issues with command-line args
 			obj.filename = match[1].replace(/[-=]/g, "");
 		}
 		return obj;
 	};
 	common_functions["snap_to_obj"] = function(snap) {
 		var caption = null;
-		// Apparently this isn't related to the caption?
 		if (false) {
 			caption = snap.snapTitle + snap.snapSubtitles;
 			caption = caption.replace(/^\s*([\s\S]*)\s*$/, "$1");
@@ -20707,16 +20184,13 @@ var $$IMU_EXPORT$$;
 			};
 		}
 		if (el.tagName !== "VIDEO" && el.tagName !== "IMG") {
-			// <div class="css-crr1df" style="background-image: url(&quot;blob:https://www.snapchat.com/...&quot;);"></div>
 			if (el.tagName !== "DIV" || !el.style.backgroundImage || el.style.backgroundImage.indexOf("blob:") < 0) {
 				return null;
 			}
 		}
 		var current = el;
 		while ((current = current.parentElement)) {
-			// new layout
 			if (current.tagName === "DIV" && current.getAttribute("data-test") === "storyWebPlayer") {
-				// check, because otherwise it could be profile pic or an svg
 				if (!/:\/\/s\.sc-cdn\.net\//.test(el.src))
 					continue;
 				var username_a = current.querySelector('a[data-test="userName"]');
@@ -20729,7 +20203,6 @@ var $$IMU_EXPORT$$;
 					pos: 0 // fixme?
 				};
 			}
-			// old layout
 			if (current.tagName === "DIV" && current.getAttribute("role") === "presentation") {
 				var username = "";
 				var as = current.getElementsByTagName("a");
@@ -20810,11 +20283,6 @@ var $$IMU_EXPORT$$;
 		};
 	};
 	common_functions["get_tiktok_from_ttloader"] = function(site, api_cache, do_request, url, cb) {
-		// https://codecanyon.net/item/tiktok-video-downloader-wordpress-plugin/26370715
-		// returns hd (720p)
-		// ttloader.com, onlinetik.com, demo.wppress.net, tiktokdownloader.in, savevideo.ninja
-		// uses older versions (watermarked):
-		// tiktoktoolstation.com (video.src)
 		var cache_key = site + ":" + url;
 		site = site.replace(/:.*/, "");
 		real_api_query(api_cache, do_request, cache_key, {
@@ -20869,7 +20337,6 @@ var $$IMU_EXPORT$$;
 				urladd = "0";
 			var catted = raw_token + ":" + url + urladd + ":" + useragent;
 			var encoded = unescape(encodeURIComponent(catted));
-			//console_log(encoded);
 			common_functions.get_md5(options, encoded, cb);
 		};
 		var get_video_api = function(token, url, cb) {
@@ -20914,7 +20381,6 @@ var $$IMU_EXPORT$$;
 					"Sec-Fetch-User": "?1"
 				},
 				cookie_url: "https://" + site + "/",
-				// linked to user-agent
 				is_private: true
 			};
 		};
@@ -20925,7 +20391,6 @@ var $$IMU_EXPORT$$;
 				parse_raw_token(raw_token, url, "videos", navigator.userAgent, function(token) {
 					if (!token)
 						return cb(null);
-					//console_log(token);
 					get_video_api(token, url, cb);
 				});
 			} else {
@@ -20938,10 +20403,6 @@ var $$IMU_EXPORT$$;
 		});
 	};
 	common_functions["get_tiktok_from_socialvideodownloader"] = function(site, api_cache, do_request, url, cb) {
-		// https://codecanyon.net/item/social-video-downloader-wordpress-plugin/26563734?s_rank=3
-		// https://demo.wppress.net/social-video-downloader/
-		// hd:
-		// savevideo.ninja (thanks to remlap on discord)
 		var cache_key = site + ":" + url;
 		site = site.replace(/:.*/, "");
 		real_api_query(api_cache, do_request, cache_key, {
@@ -20995,7 +20456,6 @@ var $$IMU_EXPORT$$;
 			url = url.replace(/[?#].*/, "");
 			var cache_key = site + ":" + url;
 			api_cache.fetch(cache_key, cb, function(done) {
-				// first query is to populate the cookies
 				do_request({
 					url: "https://snaptik.app/",
 					imu_mode: "document",
@@ -21005,7 +20465,6 @@ var $$IMU_EXPORT$$;
 							console_error(cache_key, resp);
 							return done(null, false);
 						}
-						// this query is needed for the third to work
 						do_request({
 							method: "POST",
 							url: "https://snaptik.app/check_user.php",
@@ -21052,7 +20511,6 @@ var $$IMU_EXPORT$$;
 			url = url.replace(/[?#].*/, "");
 			var cache_key = site + ":" + url;
 			api_cache.fetch(cache_key, cb, function(done) {
-				// first query is to populate the cookies
 				do_request({
 					url: "https://snaptik.app/",
 					imu_mode: "document",
@@ -21099,12 +20557,10 @@ var $$IMU_EXPORT$$;
 				});
 			});
 		};
-		//query_snaptik_1(url);
 		query_snaptik_2(url);
 	};
 	common_functions["get_tiktok_from_musicallydown"] = function(site, api_cache, do_request, url, cb) {
 		var get_token_data = function(cb) {
-			// using real_api_query even if we don't cache because it's just less code than do_request
 			real_api_query(api_cache, do_request, "musicallydown:vtoken", {
 				url: "https://musicallydown.com"
 			}, cb, function(done, resp, cache_key) {
@@ -21244,7 +20700,6 @@ var $$IMU_EXPORT$$;
 				},
 				cookie_url: "https://" + site + "/",
 				can_head: false,
-				//content_type: "video/mp4", // otherwise it downloads as 'text/html; charset=UTF-8', which cannot be played. fixme: is this really needed?
 				video: true
 			};
 		};
@@ -21252,11 +20707,8 @@ var $$IMU_EXPORT$$;
 			cb(get_dl_url());
 		});
 	};
-	// This is a terrible duct-tape solution, but required until I can find a proper way to fix get_best_tiktok_url
-	// Note that this will NOT be called unless "Rules using 3rd-party websites" is enabled (it's disabled by default)
 	common_functions["get_tiktok_from_3rdparty"] = function(site, api_cache, options, url, cb) {
 		var sites = {
-			// hd
 			"ttloader.com:ttt": common_functions["get_tiktok_from_ttloader_token"],
 			"onlinetik.com:ttt": common_functions["get_tiktok_from_ttloader_token"],
 			"demo.wppress.net:tt": common_functions["get_tiktok_from_ttloader"],
@@ -21266,7 +20718,6 @@ var $$IMU_EXPORT$$;
 			"ssstiktok.net:ttt": common_functions["get_tiktok_from_ttloader_token"],
 			"demo.wppress.net:svd": common_functions["get_tiktok_from_socialvideodownloader"],
 			"savevideo.ninja:svd": common_functions["get_tiktok_from_socialvideodownloader"],
-			// not hd
 			"keeptiktok.com": common_functions["get_tiktok_from_keeptiktok"],
 			"ssstiktok.io:1": common_functions["get_tiktok_from_ssstiktok"],
 			"musicallydown.com:1": common_functions["get_tiktok_from_musicallydown"],
@@ -21301,7 +20752,6 @@ var $$IMU_EXPORT$$;
 					if (!resp.responseText) {
 						if (resp.readyState !== 4)
 							return;
-						// Tampermonkey has a bug with onprogress: https://github.com/Tampermonkey/tampermonkey/issues/906
 						if (resp.loaded && resp.total && resp.status === 200)
 							return;
 						request_handle.abort();
@@ -21310,7 +20760,6 @@ var $$IMU_EXPORT$$;
 						return done(null, false);
 					}
 					var match = resp.responseText.match(/mdtacomment[\s\S]{10,400}vid:([0-9a-z]{32})/);
-					// after that, it stores 0, 0, 0, 37, with 37 being the length of vid:..., is this related?
 					if (!match) {
 						if (false) {
 							var is_orig = /mdta[\s\S]{10,400}mdtacom\.apple\.quicktime\.description/.test(resp.responseText);
@@ -21354,17 +20803,12 @@ var $$IMU_EXPORT$$;
 		var get_nowatermark_for_vidid = function(vidid, cb) {
 			var cache_key = "tiktok_watermarkfree:" + vidid;
 			api_cache.fetch(cache_key, cb, function(done) {
-				//var request_url = "https://api.tiktokv.com/aweme/v1/playwm/?video_id=" + vidid + "&ratio=default&improve_bitrate=1";
 				var request_url = "https://api2-16-h2.musical.ly/aweme/v1/play/?video_id=" + vidid + "&ratio=default&improve_bitrate=1";
 				var request_video = function(times) {
 					do_request({
-						// &ratio=1080p actually lowers the resolution to 480x* (instead of 576x*):
-						// &ratio=default returns the original version (thanks to remlap on discord)
-						// https://www.tiktok.com/@mariamenounos/video/6830547359403937030
 						url: request_url,
 						headers: {
 							Referer: "https://www.tiktok.com/",
-							//Accept: "text/html",
 							Accept: "*/*",
 							"Sec-Fetch-Dest": "video",
 							"Sec-Fetch-Mode": "no-cors",
@@ -21374,9 +20818,6 @@ var $$IMU_EXPORT$$;
 						onload: function(resp) {
 							if (resp.readyState !== 4)
 								return;
-							// https://www.tiktok.com/@auliicravalho/video/6813323310521224454 - returns 302
-							// sometimes it can return 503 (service unavailable), but still return a video url (thanks to JoshuaCalvert on discord for reporting)
-							//   the video url still doesn't work though, so let's not check for that?
 							if (resp.status === 503) {
 								if (times < 5) {
 									return setTimeout(function() {
@@ -21389,7 +20830,6 @@ var $$IMU_EXPORT$$;
 								return done(null, false);
 							}
 							var finalurl = force_https(get_resp_finalurl(resp));
-							// probably the application/json, content-length: 0 bug
 							if (finalurl === request_url) {
 								if (times < 5) {
 									return setTimeout(function() {
@@ -21416,7 +20856,6 @@ var $$IMU_EXPORT$$;
 			if (!newsrc)
 				newsrc = src;
 			var new_urlvidid = common_functions["get_tiktok_urlvidid"](newsrc);
-			// to avoid infinite redirects
 			if (new_urlvidid === old_urlvidid) {
 				newsrc = src;
 			}
@@ -21441,7 +20880,6 @@ var $$IMU_EXPORT$$;
 		}
 		if (options.rule_specific.tiktok_thirdparty && weburl) {
 			var thirdparty = options.rule_specific.tiktok_thirdparty;
-			// fixme (once/if multiple third party sites are supported)
 			if (is_array(thirdparty))
 				thirdparty = thirdparty[0];
 			funcs.push(thirdparty);
@@ -21497,7 +20935,6 @@ var $$IMU_EXPORT$$;
 				}
 				var add_args = false;
 				if (/:ytInitialPlayerResponse|:(?:window\.)?ytplayer\.bootstrapPlayerResponse/.test(match[1])) {
-					// both window[...] and var ... variants exist
 					match = data.match(/(?:window\["ytInitialPlayerResponse"\]|var ytInitialPlayerResponse)\s*=\s*({.*?});/);
 					if (!match) {
 						console_warn(cache_key, "Unable to find ytInitialPlayerResponse for", { data: data });
@@ -21611,7 +21048,6 @@ var $$IMU_EXPORT$$;
 			});
 		});
 	};
-	// doesn't work anymore
 	/*common_functions["youtube_fetch_embed"] = function(api_cache, options, id, cb) {
 		var cache_key = "youtube_embed_info:" + id;
 		api_cache.fetch(cache_key, cb, function(done) {
@@ -21626,8 +21062,6 @@ var $$IMU_EXPORT$$;
 						console_error(resp);
 						return done(null, false);
 					}
-
-					// todo: use get_queries instead
 					var splitted = resp.responseText.split("&");
 					var found_player_response = false;
 					for (var i = 0; i < splitted.length; i++) {
@@ -21637,10 +21071,6 @@ var $$IMU_EXPORT$$;
 
 							try {
 								var json = JSON_parse(data);
-
-								// sometimes fails with: playabilityStatus { status: UNPLAYABLE, reason: Video+unavailable }
-								// also fails when video is about to premiere
-								//var formats = json.streamingData.formats; // just to make sure it exists
 								return done(json, 5*60*60); // video URLs expire in 6 hours
 							} catch (e) {
 								console_error(e, resp, splitted[i], data);
@@ -21695,7 +21125,6 @@ var $$IMU_EXPORT$$;
 			var maxobj = null;
 			for (var i = 0; i < data.mediaDefinition.length; i++) {
 				var def = data.mediaDefinition[i];
-				// e.g. 2160/1440p videos for non-logged in members
 				if (!def.videoUrl)
 					continue;
 				def.quality = parse_int(def.quality);
@@ -21704,8 +21133,6 @@ var $$IMU_EXPORT$$;
 					maxobj = def;
 				}
 			}
-			// the queries constantly change, so to avoid constantly refreshing, let's make sure the base URL is different
-			// the domain can also change (cv/ev) so remove that as well
 			var newsrc = maxobj.videoUrl;
 			var noq = src.replace(/[?#].*$/, "").replace(/^[a-z]+:\/\/[^/]+\/+/, "");
 			var newnoq = newsrc.replace(/[?#].*$/, "").replace(/^[a-z]+:\/\/[^/]+\/+/, "");
@@ -21831,7 +21258,6 @@ var $$IMU_EXPORT$$;
 			header += get_attrib("mediaPresentationDuration", "PT" + hours + "H" + minutes + "M" + seconds + "S");
 		}
 		header += " profiles=\"urn:mpeg:dash:profile:isoff-main:2011\"";
-		//header += " profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\"";
 		header += ">\n<Period>\n";
 		var get_range_str = function(range) {
 			return range.start + "-" + range.end;
@@ -21876,17 +21302,13 @@ var $$IMU_EXPORT$$;
 				var array = audiovideo === "audio" ? data.audios : data.videos;
 				array_foreach(array, function(item) {
 					if (!item.mime) {
-						// todo: create common_function for getting the extension
 						var ext = item.url.replace(/^[^?#]+\.([^/.?#]+)(?:[?#].*)?$/, "$1");
 						if (ext !== item.url) {
 							if (!item.codecs) {
-								// https://cconcolato.github.io/media-mime-support/
 								if (ext === "mp4") {
-									//item.codecs = "avc1.640028";
 									item.codecs = "avc1.4d401f";
 								} else if (ext === "mp3") {
 									item.codecs = "mp3";
-									//item.codecs = "mp4a.40.2";
 								}
 							}
 							if (ext === "mp3")
@@ -22015,7 +21437,6 @@ var $$IMU_EXPORT$$;
 			if (source.type === "application/x-mpegURL" || string_indexof(source.url, ".m3u8") >= 0) {
 				video = "hls";
 			}
-			// TODO: DASH
 			urls.push({
 				url: urljoin(page, source.url, true),
 				video: video
@@ -22055,7 +21476,6 @@ var $$IMU_EXPORT$$;
 		var caption = get_meta(resp.responseText, "og:title");
 		if (caption)
 			obj.extra.caption = caption;
-		// todo: should this be in get_videotag_sources instead?
 		sources.video.sort(function(a, b) {
 			if (a.args.res && b.args.res) {
 				return b.args.res - a.args.res;
@@ -22115,7 +21535,6 @@ var $$IMU_EXPORT$$;
 		var matches = state.matches;
 		var op = process_data.op;
 		var waiting = false;
-		//console_log(process_data);
 		if (op === "obj_set") {
 			var value;
 			if (process_data.value) {
@@ -22324,13 +21743,11 @@ var $$IMU_EXPORT$$;
 		var processed = 0;
 		var msmls = {};
 		var do_cb = function() {
-			//console_log(processed, total);
 			if (processed >= total) {
 				cb(formats);
 				processed = -1; // don't run final twice
 			}
 		};
-		//console_log(deepcopy(formats));
 		array_foreach(formats, function(format) {
 			obj_foreach(format, function(key) {
 				if (!format[key] || !options.process_format || !(key in options.process_format)) {
@@ -22526,7 +21943,6 @@ var $$IMU_EXPORT$$;
 					return;
 				var min = -1;
 				var min_url = null;
-				// to avoid redirects to identically sized images
 				if (current in processed_urls) {
 					min_url = current;
 					min = processed_urls[current][0] * processed_urls[current][1];
@@ -22579,14 +21995,6 @@ var $$IMU_EXPORT$$;
 		};
 		var newsrc, match;
 		if (string_indexof(obj.url, "/profile_images/") >= 0) {
-			// https://pbs.twimg.com/profile_images/539057632435122178/1_MUcoAZ_bigger.jpeg
-			// https://pbs.twimg.com/profile_images/642139282325417984/uXOHdmTV_mini.png
-			// https://pbs.twimg.com/profile_images/1079712585186852864/l9IiWuzk_reasonably_small.jpg
-			//   https://pbs.twimg.com/profile_images/1079712585186852864/l9IiWuzk.jpg
-			// thanks to Liz on discord:
-			// https://pbs.twimg.com/profile_images/1120032409045602304/id2Moo0W_x96.png
-			//   https://pbs.twimg.com/profile_images/1120032409045602304/id2Moo0W.png
-			//return src.replace(/_[a-zA-Z0-9]+\.([^/_]*)$/, "\.$1");
 			newsrc = obj.url
 				.replace(/[?#].*$/, "")
 				.replace(/_(?:bigger|normal|mini|reasonably_small|[0-9]*x[0-9]+)(\.[^/_]*)$/, "$1");
@@ -22598,11 +22006,6 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		if (string_indexof(obj.url, "/profile_banners/") >= 0) {
-			// https://pbs.twimg.com/profile_banners/811769379020947458/1503413326/1500x500 -- stretched
-			//   https://pbs.twimg.com/profile_banners/811769379020947458/1503413326
-			// thanks to Gyuri on discord:
-			// https://pbs.twimg.com/profile_banners/4746636714/1520928319/1500x500 -- possibly not stretched?
-			//   https://pbs.twimg.com/profile_banners/4746636714/1520928319
 			newsrc = obj.url.replace(/\/[0-9]+x[0-9]+(?:[?#].*)?$/, "");
 			if (newsrc !== obj.url) {
 				obj.url = newsrc;
@@ -22612,7 +22015,6 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		fill_obj_filename(obj, obj.url);
-		// replace :orig to name=orig, should always work?
 		newsrc = obj.url
 			.replace(/:([^/?]+)(.*)?$/, "$2?name=$1")
 			.replace(/(\?.*)\?name=/, "$1&name=");
@@ -22620,10 +22022,6 @@ var $$IMU_EXPORT$$;
 			obj.url = newsrc;
 		}
 		if (false && !(/\/(?:card|ad|semantic_core)_img\//.test(obj.url))) {
-			// replace format=jpg to .jpg, doesn't work for /card_img/
-			// doesn't work for some tweet images too (thanks to llacb47 on github for reporting: https://github.com/qsniyg/maxurl/issues/545)
-			// https://pbs.twimg.com/media/EnlTOuPVkAEVFcG?format=jpg&name=medium
-			//   https://pbs.twimg.com/media/EnlTOuPVkAEVFcG?format=jpg&name=orig
 			if (false) {
 				newsrc = obj.url
 					.replace(/(\/[^/.?]+)\?(.*?&)?format=([^&]*)(.*?$)?/, "$1.$3?$2$4")
@@ -22634,18 +22032,14 @@ var $$IMU_EXPORT$$;
 		if (/:\/\/[^/]+\/+media\//.test(obj.url)) {
 			match = obj.url.match(/^([^?#]+\/[^/.?#]+)\.([^/.?#]+)([?#].*)?$/);
 			if (match) {
-				// todo: check if format already exists and don't overwrite?
 				newsrc = add_queries(match[1] + (match[3] || ""), { format: match[2] });
 			}
 			newsrc = newsrc.replace(/([?&]format=)webp(&.*)?$/, "$1jpg$2");
-			// should always work?
 			if (newsrc !== obj.url) {
 				fill_obj_filename(obj, newsrc);
 				obj.url = newsrc;
 			}
 		}
-		// http://pbs.twimg.com/tweet_video_thumb/EmCgOz9U4AA0bib.jpg
-		//   https://pbs.twimg.com/tweet_video/EmCgOz9U4AA0bib.mp4
 		match = obj.url.match(/\/tweet_video_thumb\/+([^/.?#]+)\./);
 		if (match) {
 			return {
@@ -22653,15 +22047,11 @@ var $$IMU_EXPORT$$;
 				video: true
 			};
 		}
-		// try various names (thanks to rEnr3n for reporting): https://github.com/qsniyg/maxurl/issues/165
-		// https://pbs.twimg.com/media/Bu4G7k3CcAA6Nx7.jpg
-		//   https://pbs.twimg.com/media/Bu4G7k3CcAA6Nx7.jpg?name=medium -- same size, anything higher doesn't work
 		var names = ["orig", "4096x4096", "large", "medium"];
 		var baseobj = obj;
 		var mobj = [];
 		var name_match = baseobj.url.match(/[?&]name=([^&]+)/);
 		var name = name_match ? name_match[1] : null;
-		// don't downscale
 		var end = array_indexof(names, name);
 		if (end < 0)
 			end = names.length;
@@ -22681,9 +22071,6 @@ var $$IMU_EXPORT$$;
 				.replace(/(\.[a-z]+)\?(?:(.*)&)?format=[^&]+/, "$1?$2&")
 				.replace(/&$/, "");
 			newsrc = add_queries(newsrc, { name: names[i] });
-			//var newsrc_colon = newsrc.replace(/\?name=([^&]+)$/, ":$1");
-			// don't do this, this doesn't work for .jpg?format=jpg&name=...
-			// commenting out because src doesn't exist
 			/*if (false) {
 				newsrc = src.replace(/([?&]name=)[^&]+(&.*)?$/, "$1" + names[i] + "$2");
 				if (newsrc === src)
@@ -22724,13 +22111,9 @@ var $$IMU_EXPORT$$;
 	};
 	common_functions["multidomain__nitter"] = function(domain, domain_nowww) {
 		return domain_nowww === "nitter.net" ||
-			// https://github.com/zedeus/nitter/wiki/Instances
-			//domain === "nitter.13ad.de" ||
-			//domain === "tw.openalgeria.org" ||
 			domain === "nitter.42l.fr" ||
 			domain === "nitter.pussthecat.org" ||
 			domain === "nitter.nixnet.services" ||
-			//domain === "nitter.mastodont.cat" ||
 			domain === "nitter.tedomum.net" ||
 			domain === "nitter.fdn.fr" ||
 			domain === "nitter.1d4.us" ||
@@ -22756,8 +22139,6 @@ var $$IMU_EXPORT$$;
 			domain === "twitr.gq" ||
 			domain === "nitter.koyu.space" ||
 			domain === "nitter.dark.fail" ||
-			//domain === "t.maisputain.ovh" ||
-			//domain === "nitter.weaponizedhumiliation.com" ||
 			domain === "nitter.snopyta.org";
 	};
 	common_functions["multidomain__teddit"] = function(domain, domain_nowww) {
@@ -22782,11 +22163,9 @@ var $$IMU_EXPORT$$;
 			domain === "reddit.lurkmore.com";
 	};
 	common_functions["multidomain__xhamster"] = function(domain_nosub) {
-		// trustURLs in initials object
 		return domain_nosub === "xhamster.com" || // 1-45?, 500
 			domain_nosub === "xhamster.one" ||
 			domain_nosub === "xhamster.desi" || // 1-5, 7
-			//domain_nosub === "xhamsterpremium.com" ||
 			domain_nosub === "openxh.com" ||
 			domain_nosub === "openxh1.com" ||
 			domain_nosub === "openxh2.com" ||
@@ -22796,21 +22175,9 @@ var $$IMU_EXPORT$$;
 			domain_nosub === "fullxh.com" ||
 			domain_nosub === "xhtotal.com" ||
 			domain_nosub === "localxh.com" || // 1-5
-			// 1-4
 			domain_nosub === "xhofficial.com";
 	};
-	// this requires removing everything before the thumbor url with /
 	common_functions["get_thumbor_url"] = function(src) {
-		// /S4Fr7rEpLL-QZnU3bsNT5ORJzYQ=/364x130/https%3A%2F%2Fblueprint-api-production.s3.amazonaws.com%2Fuploads%2Fstory%2Fthumbnail%2F73835%2Fd72a8d3f-baf0-4132-b6f9-358d27d1c0c9.JPG
-		//   https%3A%2F%2Fblueprint-api-production.s3.amazonaws.com%2Fuploads%2Fstory%2Fthumbnail%2F73835%2Fd72a8d3f-baf0-4132-b6f9-358d27d1c0c9.JPG
-		// /tREpzmUU7LJX1cbkAN-unm7wL0Y=/fit-in/800x600/top/filters:fill(black)/arc-anglerfish-arc2-prod-tronc.s3.amazonaws.com/public/XC6HBG2I4VHTJGGCOYVPLBGVSM.jpg
-		//   arc-anglerfish-arc2-prod-tronc.s3.amazonaws.com/public/XC6HBG2I4VHTJGGCOYVPLBGVSM.jpg
-		// /Aq5Tn8-7kqPSJs4U0_QaYoM6x8Q/fit-in/1024x1024/filters:format_auto-!!-:strip_icc-!!-/2015/03/30/647/n/1922564/ccc1eafd_edit_img_cover_file_864129_1397566805/i/Emma-Watson-Best-Red-Carpet-Looks.png
-		//   2015/03/30/647/n/1922564/ccc1eafd_edit_img_cover_file_864129_1397566805/i/Emma-Watson-Best-Red-Carpet-Looks.png
-		// /t85Z6EqhDjIu8EaEzfzk5hOJ1Ck/0x360:2400x2394/fit-in/728xorig/filters:format_auto-!!-:strip_icc-!!-:watermark-!popsugar-watermark.png,-5,-5,0!-/2020/01/16/687/n/1922564/4606d55d5e20819816a430.09594567_/i/selena-gomez-style-for-new-album-release-2020.jpg
-		//   2020/01/16/687/n/1922564/4606d55d5e20819816a430.09594567_/i/selena-gomez-style-for-new-album-release-2020.jpg
-		// https://images.macrumors.com/t/H0ZN9uTQCAlcNAvgJLkUkfNyHDI=/112x112/smart/article-new/2021/05/Top-Stories-59-Feature.jpg
-		//   article-new/2021/05/Top-Stories-59-Feature.jpg
 		src = src
 			.replace(/^\/*/, "/")
 			.replace(/^\/[-_0-9a-zA-Z]{20,}=?\/+/, "/")
@@ -22821,10 +22188,8 @@ var $$IMU_EXPORT$$;
 			.replace(/^\/*/, "");
 		return src;
 	};
-	// currently type is ignored as only ReleaseAllImages has been discovered
 	common_functions["query_discogs_images_api"] = function(options, type, discogsid, cb) {
 		var vars = encodeURIComponent("{\"discogsId\":" + discogsid + ",\"count\":500}");
-		// magic
 		var extensions = "%7B%22persistedQuery%22%3A%7B%22version%22%3A1%2C%22sha256Hash%22%3A%2213e41f41a02b02d0a7e855a71e1a02478fd2fb0a2d104b54931d649e1d7c6ecd%22%7D%7D";
 		real_api_query(options.api_cache, options.do_request, "discogs_images:" + discogsid, {
 			url: " https://release-page.discogs.com/api/graphql?operationName=ReleaseAllImages&variables=" + vars + "&extensions=" + extensions,
@@ -22841,9 +22206,6 @@ var $$IMU_EXPORT$$;
 			var out_images = [];
 			array_foreach(images, function(image) {
 				var node = image.node;
-				// webpUrl seems to be better quality than sourceUrl?
-				// https://img.discogs.com/Amgne6j0gBvX12BXuwyyx1U6afU=/fit-in/600x600/filters:strip_icc():format(webp):mode_rgb():quality(90)/discogs-images/R-6114127-1413723322-8982.jpeg.jpg
-				// https://img.discogs.com/_4HU0V6fRalpgDVx08VPdQl7ZMk=/fit-in/600x600/filters:strip_icc():format(jpeg):mode_rgb():quality(90)/discogs-images/R-6114127-1413723322-8982.jpeg.jpg
 				out_images.push(node.fullsize.webpUrl);
 			});
 			done(out_images, 6 * 60 * 60);
@@ -22878,7 +22240,6 @@ var $$IMU_EXPORT$$;
 			"Origin": "https://www.flickr.com",
 			"Referer": "https://www.flickr.com/",
 			"Sec-Fetch-Site": "same-site",
-			// why?
 			"Cookie": ""
 		};
 		return options.do_request({
@@ -23024,8 +22385,6 @@ var $$IMU_EXPORT$$;
 	var get_origin_from_url = get_domain_from_url;
 	var get_domain_nosub = function(domain) {
 		var domain_nosub = domain.replace(/^.*\.([^.]*\.[^.]*)$/, "$1");
-		// stream.ne.jp
-		// *.edu.tr
 		if (/^(?:(?:com?|org|net|edu)\.[a-z]{2}|(?:ne|or)\.jp)$/.test(domain_nosub)) {
 			domain_nosub = domain.replace(/^.*\.([^.]*\.[^.]*\.[^.]*)$/, "$1");
 		}
@@ -23039,12 +22398,8 @@ var $$IMU_EXPORT$$;
 		return false;
 	};
 	function bigimage(src, options) {
-		// for element_ok with elements without sources (src == null)
-		// function too large for analysis
-		// @ts-expect-error
 		if (!src) {
 			src = "data:";
-			//return src;
 		}
 		if (!src.match(/^(?:https?|x-raw-image):\/\//) && !src.match(/^(?:data|blob):/))
 			return src;
@@ -23054,7 +22409,6 @@ var $$IMU_EXPORT$$;
 		var domain;
 		var port;
 		if (!src.match(/^(?:data|x-raw-image|blob):/)) {
-			// to prevent infinite loops
 			if (src.length >= 65535)
 				return src;
 			var protocol_split = src.split("://");
@@ -23066,7 +22420,6 @@ var $$IMU_EXPORT$$;
 				port = "";
 			domain = domain.replace(/(.*):[0-9]+$/, "$1");
 		} else {
-			//protocol = src.replace(/^([-a-z]+):.*/, "$1");
 			protocol = "data";
 			domain = "";
 			src = ""; // FIXME: this isn't great
@@ -23075,9 +22428,6 @@ var $$IMU_EXPORT$$;
 		var domain_nosub = get_domain_nosub(domain);
 		var amazon_container = null;
 		if (string_indexof(domain, ".amazonaws.com") >= 0) {
-			// https://timely-api-public.s3.us-west-2.amazonaws.com/116743_phpg7Ixww_small.JPG
-			// https://pixls-discuss.s3.dualstack.us-east-1.amazonaws.com/optimized/3X/0/5/0530ef1424b7bace746cd10d2bc26b5cd58d5e27_2_690x388.png
-			// http://stezor-img-res.s3-website.eu-central-1.amazonaws.com/600x0/0eefab17-aa8b-4f8e-9017-7b9442d1ee9e
 			if (domain.match(/^s3(?:-website)?(?:\.dualstack)?(?:[-.][-a-z0-9]+)?\.amazonaws\.com/))
 				amazon_container = src.replace(/^[a-z]*:\/\/[^/]*\/+([^/]*)\/.*/, "$1");
 			else if (domain.match(/[^/]*\.s3(?:-website)?(?:\.dualstack)?(?:[-.][-a-z0-9]+)?\.amazonaws\.com/))
@@ -23101,9 +22451,6 @@ var $$IMU_EXPORT$$;
 		}
 		var digitalocean_container = null;
 		if (domain_nosub === "digitaloceanspaces.com") {
-			// https://sfo2.digitaloceanspaces.com/btrtoday/uploads/20190611114017/ft.Cyberpunk2077.jpg
-			// https://btrtoday.sfo2.digitaloceanspaces.com/uploads/20190611114017/ft.Cyberpunk2077.jpg
-			// https://movieassetsdigital.sgp1.cdn.digitaloceanspaces.com/thumb/ca584e585152f32d7eeb9fb1837732ea5566d431
 			if (/^[a-z]{3}[0-9]+\.(?:cdn\.)?digitaloceanspaces\./.test(domain)) {
 				digitalocean_container = src.replace(/^[a-z]*:\/\/[^/]*\/+([^/]*)\/.*/, "$1");
 			} else {
@@ -23127,7 +22474,6 @@ var $$IMU_EXPORT$$;
 			if (options.window)
 				window = options.window;
 		} catch (e) {
-			//console_warn("Failed to set document/window", e);
 		}
 		var problem_excluded = function(problem) {
 			if (!options.exclude_problems)
@@ -23158,31 +22504,8 @@ var $$IMU_EXPORT$$;
 			return real_website_query(_options);
 		};
 		var newsrc, i, id, size, origsize, regex, match;
-		// instart logic morpheus
-		// test urls:
-		// char - 5
-		// https://c-6rtwjumjzx7877x24nrlncx2ewfspjwx2ehtr.g00.ranker.com/g00/3_c-6bbb.wfspjw.htr_/c-6RTWJUMJZX77x24myyux78x3ax2fx2fnrlnc.wfspjw.htrx2fzx78jw_stij_nrlx2f94x2f415044x2ftwnlnsfqx2fjzs-on-bts-wjhtwinsl-fwynx78yx78-fsi-lwtzux78-umtyt-z6x3fbx3d105x26vx3d05x26krx3doulx26knyx3dhwtux26hwtux3dkfhjx78x26n65h.rfwp.nrflj.yduj_$/$/$/$/$/$
-		//   https://imgix.ranker.com/user_node_img/49/960599/original/eun-ji-won-recording-artists-and-groups-photo-u1?w=650&q=50&fm=jpg&fit=crop&crop=faces
-		// https://c-6rtwjumjzx7877x24nrlncx2ewfspjwx2ehtr.g00.ranker.com/g00/3_c-6bbb.wfspjw.htr_/c-6RTWJUMJZX77x24myyux78x3ax2fx2fnrlnc.wfspjw.htrx2fzx78jw_stij_nrlx2f03x2f6698837x2ftwnlnsfqx2fmjj-hmzq-umtyt-z4x3fbx3d105x26vx3d05x26krx3doulx26knyx3dhwtux26hwtux3dkfhjx78x26n65h.rfwp.nrflj.yduj_$/$/$/$/$/$
-		//   https://imgix.ranker.com/user_node_img/58/1143382/original/hee-chul-photo-u9?w=650&q=50&fm=jpg&fit=crop&crop=faces
-		// https://c-6rtwjumjzx7877x24nrlncx2ewfspjwx2ehtr.g00.ranker.com/g00/3_c-6bbb.wfspjw.htr_/c-6RTWJUMJZX77x24myyux78x3ax2fx2fnrlnc.wfspjw.htrx2fzx78jw_stij_nrlx2f16x2f6757374x2ftwnlnsfqx2fmdzs-dtzsl-z7x3fbx3d105x26vx3d05x26krx3doulx26knyx3dhwtux26hwtux3dkfhjx78x26n65h.rfwp.nrflj.yduj_$/$/$/$/$/$
-		//   https://imgix.ranker.com/user_node_img/61/1202829/original/hyun-young-u2?w=650&q=50&fm=jpg&fit=crop&crop=faces
-		// https://c-7npsfqifvt0x24jnh-t-nto-dpnx2eblbnbjafex2eofu.g01.msn.com/g00/3_c-7x78x78x78.nto.dpn_/c-7NPSFQIFVT0x24iuuqtx3ax2fx2fjnh-t-nto-dpn.blbnbjafe.ofux2fufoboux2fbnqx2ffoujuzjex2fBBFFIbi.jnhx3fix3d2191x26x78x3d2031x26nx3d7x26rx3d71x26px3dgx26mx3dgx26yx3d665x26zx3d341x26j21d.nbslx3djnbhf_$/$/$/$/$
-		//   https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AAEEHah.img
-		//
-		// http://c-6rtwjumjzx7877x24bbbx2esfstanx78twx2ent.g00.tomshardware.com/g00/3_c-6bbb.ytrx78mfwibfwj.htr_/c-6RTWJUMJZX77x24myyux78x3ax2fx2fbbb.sfstanx78tw.ntx2fx40u6x2fHfhmjfgqjHXXx3fywfhpx26n65h.rfwp.qnsp.yduj_$/$/$
-		//   https://www.nanovisor.io/@p1/CacheableCSS?track
-		//
-		// char - 8
-		// https://c-5uwzmx78pmca09x24quoqfx2ezivsmzx2ekwu.g00.ranker.com/g00/3_c-5eee.zivsmz.kwu_/c-5UWZMXPMCA09x24pbbx78ax3ax2fx2fquoqf.zivsmz.kwux2fcamz_vwlm_quox2f25x2f716313x2fwzqoqvitx2fmuui-eibawv-x78mwx78tm-qv-bd-x78pwbw-c01x3fex3d903x26px3d903x26nqbx3dkzwx78x26kzwx78x3dnikmax26yx3d48x26nux3drx78ox26q98k.uizs.quiom.bgx78m_$/$/$/$/$/$
-		//   https://imgix.ranker.com/user_node_img/47/938535/original/emma-watson-people-in-tv-photo-u23?w=125&h=125&fit=crop&crop=faces&q=60&fm=jpg
-		//
-		// http://c-6rtwjumjzx7877x24zlh-56x2ehfkjrtrx78yfynhx2ehtr.g00.cafemom.com/g00/3_c-6ymjx78ynw.hfkjrtr.htr_/c-6RTWJUMJZX77x24myyux78x3ax2fx2fzlh-56.hfkjrtrx78yfynh.htrx2fljsx2fhwtux2f705x2f695x2f25x2f7563x2f57x2f56x2f65x2f82x2fibx2futpmy32vnt27.uslx3fn65h.rfwpx3dnrflj_$/$/$/$/$/$/$/$/$/$/$/$/$
-		//   https://ugc-01.cafemomstatic.com/gen/crop/250/140/70/2018/02/01/10/37/dw/pokht87qio72.png
 		if (string_indexof(src, "/g00/") >= 0 && /\.g0[0-9]\./.test(domain)) {
 			var str = "";
-			//var i;
-			// decode x[0-9][0-9] to \x[0-9][0-9]
 			for (i = 0; i < src.length; i++) {
 				if (src[i] == 'x') {
 					var char = parseInt(src[i + 1] + src[i + 2], 16);
@@ -23195,7 +22518,6 @@ var $$IMU_EXPORT$$;
 			str = str.split("/").slice(5).join("/").split("$").slice(1).join("$");
 			if (str && string_indexof(str, "://") < 10 && str[1] == str[2]) {
 				var diff = mod(str.charCodeAt(0) - 'h'.charCodeAt(0), 26);
-				// char - diff
 				var str1 = "";
 				for (i = 0; i < str.length; i++) {
 					var code = str.charCodeAt(i);
@@ -23217,10 +22539,7 @@ var $$IMU_EXPORT$$;
 					if ($s !== urlparts && $s) {
 						var count = $s.split("$").length - 1;
 						if (count > 0) {
-							// + 2 for http://
 							var newurl = urlparts.split("/").slice(0, count + 2).join("/");
-							// https://ugc-01.cafemomstatic.com/gen/crop/250/140/70/2018/02/01/10/37/dw/pokht87qio72.png?i10c.mark=image_$
-							//newurl = newurl.split("&").slice(0,-1).join("&"); // remove &i10c.mark.link.type_...
 							newurl = newurl.replace(/[?&]i10c\.mark[^/]*$/, "");
 							if (newurl)
 								return newurl;
@@ -23231,7 +22550,10 @@ var $$IMU_EXPORT$$;
 				}
 			}
 		}
-		// -- start bigimage --
+
+
+
+		// 规则开始
 		if ((host_domain_nowww === "google.com" ||
 			domain_nowww === "google.com") && /^[a-z]+:\/\/[^/]+\/+recaptcha\//.test(options.host_url)) {
 			return {
@@ -23246,38 +22568,6 @@ var $$IMU_EXPORT$$;
 			};
 		}
 		if (domain_nosub === "sinaimg.cn") {
-			// works:
-			// http://ss12.sinaimg.cn/orignal/66a6ce75g8b46ba3a373b&690
-			// http://ss12.sinaimg.cn/orignal/6bc10695g923b8902976b&690
-			// http://ss7.sinaimg.cn/orignal/67a7cd73g8b48c289ae26&690
-			// http://ss6.sinaimg.cn/orignal/6b3178f4g92678953d725&690
-			// thanks to fireattack on github for these examples: https://github.com/qsniyg/maxurl/issues/147#issue-503777148
-			// https://wx4.sinaimg.cn/mw690/9a646dd9ly1g7qil8atsgj22ao328qv6.jpg
-			//   https://wx4.sinaimg.cn/large/9a646dd9ly1g7qil8atsgj22ao328qv6.jpg
-			// doesn't:
-			// http://ww4.sinaimg.cn/large/ad769c8bgy1fnaovhjp4rj21m62iob2d.jpg
-			//   http://ww4.sinaimg.cn/woriginal/ad769c8bgy1fnaovhjp4rj21m62iob2d.jpg - works
-			// http://wx3.sinaimg.cn/large/71080fe4gy1fehxmeusddj21kw2ddb2a.jpg
-			// https://wxt.sinaimg.cn/large/006Qyga5ly1fnsl8inznlj31ww2pgqv8.jpg
-			//
-			// http://k.sinaimg.cn/n/ent/transform/w150h100/20180227/Mf6R-fyrwsqi6927544.jpg/w150h100f1t0l0syf.png
-			//   http://n.sinaimg.cn/sinacn/w603h580/20180227/b993-fyrwsqi5950343.jpg
-			// http://n.sinaimg.cn/ent/transform/w500h750/20180206/FzeL-fyrhcqz0888399.jpg
-			//   http://k.sinaimg.cn/ent/transform/w500h750/20180206/FzeL-fyrhcqz0888399.jpg - doesn't work (bad request)
-			//   http://n.sinaimg.cn/sinacn/w500h750/20180206/FzeL-fyrhcqz0888399.jpg - doesn't work
-			//
-			// http://n.sinaimg.cn/translate/w750h484/20180206/c8U1-fyrhcqy9899138.jpg
-			//   http://n.sinaimg.cn/transform/w750h484/20180206/c8U1-fyrhcqy9899138.jpg - doesn't work
-			//
-			// http://n.sinaimg.cn/translate/20170819/QwU0-fykcpru8486163.jpg
-			//
-			// http://n.sinaimg.cn/ent/4_ori/upload/a57892fc/w2048h3072/20180217/zPxq-fyrpeif2120125.jpg
-			//
-			// https://tc.sinaimg.cn/maxwidth.800/tc.service.weibo.com/img_mp_itc_cn/8236ed1acca6f9b1f2d57a59cb5088cf.jpg
-			//   https://tc.sinaimg.cn/original/tc.service.weibo.com/img_mp_itc_cn/8236ed1acca6f9b1f2d57a59cb5088cf.jpg -- 403 if head
-			//
-			// https://wx4.sinaimg.cn/large/008gKD25ly1grw0kvjdhhj34na672b2l.jpg -- 6022x8030
-			//   https://wx4.sinaimg.cn/original/008gKD25ly1grw0kvjdhhj34na672b2l.jpg -- same file
 			if (src.match(/:\/\/[^/]*\/+max(?:width|height)\.[0-9]+\//)) {
 				return {
 					url: src.replace(/(:\/\/[^/]*\/+)[^/]*\//, "$1original/"),
@@ -23290,19 +22580,13 @@ var $$IMU_EXPORT$$;
 				src = src.replace(/\.sinaimg\.cn\/+[^/]*\/+([^/]*)\/*$/, ".sinaimg.cn/large/$1");
 			}
 			if (domain.match(/^n\./)) {
-				// http://n.sinaimg.cn/ent/4_img/upload/75913a59/20170522/iHLB-fyfkzhs8250377.jpg
-				//   http://n.sinaimg.cn/ent/4_ori/upload/75913a59/20170522/iHLB-fyfkzhs8250377.jpg
 				newsrc = src.replace(/(\/ent\/+[0-9]+_)img(\/+upload\/)/, "$1ori$2");
 				if (newsrc !== src)
 					return newsrc;
 			}
-			// http://www.sinaimg.cn/qc/autoimg/serial/00/00/32182318_340.JPG
-			//   http://www.sinaimg.cn/qc/autoimg/serial/00/00/32182318_src.JPG
 			newsrc = src.replace(/(\/autoimg\/+serial\/+[0-9]{2}\/+[0-9]{2}\/+[0-9]+)_[0-9]+(\.[^/.]+)(?:[?#].*)?$/, "$1_src$2");
 			if (newsrc !== src)
 				return newsrc;
-			// http://www.sinaimg.cn/dy/slidenews/4_t500/2014_15/704_1283534_165508.jpg
-			//   http://www.sinaimg.cn/dy/slidenews/4_img/2014_15/704_1283534_165508.jpg
 			newsrc = src.replace(/\/slidenews\/+([^/_]*)_[^/_]*\//, "/slidenews/$1_img/"); // there's also _ori, but it seems to be smaller?
 			if (newsrc !== src)
 				return newsrc;
@@ -23317,75 +22601,19 @@ var $$IMU_EXPORT$$;
 			};
 		}
 		if (domain_nosub === "sina.com.cn" && domain.match(/^static[0-9]\.photo\.sina\.com\.cn/)) {
-			// http://static7.photo.sina.com.cn/medium/49d0afb2g87b3e7e7a066&690
-			//   http://ss7.sinaimg.cn/medium/49d0afb2g87b3e7e7a066&690
-			//   http://ss7.sinaimg.cn/orignal/49d0afb2g87b3e7e7a066&690
 			return src.replace(/:\/\/static([0-9]*)\.photo\.sina\.com\.cn\//, "://ss$1.sinaimg.cn/");
 		}
 		if (domain === "sinaimg.acgsoso.com") {
-			// https://sinaimg.acgsoso.com/mw690/007ZKdkxgy1gbpcfz57t9j30oo104442
-			//   https://wx4.sinaimg.cn/large/007ZKdkxgy1gbpcfz57t9j30oo104442
 			return src.replace(/:\/\/[^/]+\/+/, "://wx4.sinaimg.cn/");
 		}
 		if (domain === "pbs.twimg.com" ||
 			(domain === "ton.twitter.com" && string_indexof(src, "/ton/data/dm/") >= 0)) {
-			// https://pbs.twimg.com/card_img/1233609033145171968/yM9hHz4R?format=jpg&name=small
-			//   https://pbs.twimg.com/card_img/1233609033145171968/yM9hHz4R?format=jpg&name=orig
-			// https://pbs.twimg.com/ad_img/1228452474039619584/WZtokGPI?format=jpg&name=small
-			//   https://pbs.twimg.com/ad_img/1228452474039619584/WZtokGPI?format=jpg&name=orig
-			// https://pbs.twimg.com/semantic_core_img/1236969872543768578/18vxA6iq?format=jpg&name=240x240
-			//   https://pbs.twimg.com/semantic_core_img/1236969872543768578/18vxA6iq?format=jpg&name=orig
-			// https://pbs.twimg.com/tweet_video_thumb/EXNl_O1XQAEKPTh.jpg:thumb
-			//   https://pbs.twimg.com/tweet_video_thumb/EXNl_O1XQAEKPTh.png?name=orig
-			// use ?name=orig instead of :orig, see:
-			//   https://github.com/qsniyg/maxurl/issues/2
-			// https://pbs.twimg.com/media/DWREhilXkAAcafr?format=jpg&name=small -- 403
-			//   https://pbs.twimg.com/media/DWREhilXkAAcafr.jpg:orig
-			//   https://pbs.twimg.com/media/DWREhilXkAAcafr?format=jpg&name=orig
-			//   https://pbs.twimg.com/media/DWREhilXkAAcafr.jpg?name=orig
-			// https://pbs.twimg.com/media/DWO61F5X4AISSsF?format=jpg
-			//   https://pbs.twimg.com/media/DWO61F5X4AISSsF.jpg:orig
-			//   https://pbs.twimg.com/media/DWO61F5X4AISSsF?format=jpg&name=orig
-			// https://pbs.twimg.com/media/Dbxmq4BV4AA2ozg.jpg:orig
-			//   https://pbs.twimg.com/media/Dbxmq4BV4AA2ozg.jpg?name=orig
-			// https://pbs.twimg.com/media/DdxPc2eU0AAED8b.jpg:thumb
-			//   https://pbs.twimg.com/media/DdxPc2eU0AAED8b.jpg?name=orig
-			// https://pbs.twimg.com/media/DhI2IjaU8AAzEFA.jpg?format=jpg&name=orig
-			//   https://pbs.twimg.com/media/DhI2IjaU8AAzEFA.jpg?name=orig
-			// https://pbs.twimg.com/media/DhbrylaVAAYlrss?format=png
-			//   https://pbs.twimg.com/media/DhbrylaVAAYlrss.jpg?name=orig
-			//   https://pbs.twimg.com/media/DhbrylaVAAYlrss:orig?format=jpg
-			// https://pbs.twimg.com/card_img/958636711470223361/S0DycGGB?format=jpg&name=600x314
-			//   https://pbs.twimg.com/card_img/958636711470223361/S0DycGGB?format=jpg&name=orig
-			// https://pbs.twimg.com/ext_tw_video_thumb/1078225907569967105/pu/img/-Dw-qFfQvMTHz6YA?format=jpg&name=120x120
-			//   https://pbs.twimg.com/ext_tw_video_thumb/1078225907569967105/pu/img/-Dw-qFfQvMTHz6YA?format=jpg&name=orig
-			// https://pbs.twimg.com/media/DhqeJS2UcAAo7fr.png
-			//   https://pbs.twimg.com/media/DhqeJS2UcAAo7fr.jpg
-			//   https://pbs.twimg.com/media/DhqeJS2UcAAo7fr.jpg?name=orig -- doesn't work
-			//   https://pbs.twimg.com/media/DhqeJS2UcAAo7fr.png?name=orig -- works
-			// https://pbs.twimg.com/media/ESHsHpCXkAA2xfZ.png
-			//   https://pbs.twimg.com/media/ESHsHpCXkAA2xfZ.jpg?name=orig
-			// https://pbs.twimg.com/media/EUEKr-gUYAMrXt_?format=jpg&name=900x900
-			// https://pbs.twimg.com/media/EWHdLzNUwAIy7Ik.jpg:orig -- works (1368x2048) -- no longer, probably a cache error?
-			//   https://pbs.twimg.com/media/EWHdLzNUwAIy7Ik.jpg?name=orig -- doesn't work (404)
-			// thanks to llacb47 on github: https://pbs.twimg.com/media/EhML7FPXkAEK4GZ?format=webp&name=tiny
-			// https://pbs.twimg.com/media/EhML7FPXkAEK4GZ?format=webp&name=tiny
-			//   https://pbs.twimg.com/media/EhML7FPXkAEK4GZ.jpg?name=orig
-			// https://pbs.twimg.com/media/EhMO9OhU0AA6vZv?format=webp&name=tiny
-			//   https://pbs.twimg.com/media/EhMO9OhU0AA6vZv.jpg?name=orig
-			// 4096x4096 is also a valid "name"
-			// medium == null?
 			newsrc = common_functions["get_largest_twimg"](src, options);
 			if (newsrc)
 				return newsrc;
 		}
 		if (domain_nowww === "twitter.com") {
-			// https://github.com/qsniyg/maxurl/issues/243
-			// https://twitter.com/NoMansSky/status/1325458262800683009
 			var _query_twitter_webapi = function(url, cookies, cb) {
-				// ct0 = x-csrf-token (32 bytes for non-logged in, 160 for logged in)
-				// auth_token is present if logged in
-				// gt = x-guest-token (can be provided by a twitter webpage if it's not present)
 				if (!cookies || !cookies.ct0) {
 					console_warn("Cookies are needed for Twitter API calls", cookies);
 					return cb(null);
@@ -23393,7 +22621,6 @@ var $$IMU_EXPORT$$;
 				var headers = {
 					Accept: "*/*",
 					Authorization: base64_decode("YWJjZEJlYXJlciBBQUFBQUFBQUFBQUFBQUFBQUFBQUFOUklMZ0FBQUFBQW5Od0l6VWVqUkNPdUg1RTZJOHhuWno0cHVUcyUzRDFadjd0dGZrOExGODFJVXExNmNIamhMVHZKdTRGQTMzQUdXV2pDcFRuQQ==").substr(4),
-					//Origin: "https://twitter.com",
 					Referer: "https://twitter.com/",
 					"sec-fetch-dest": "empty",
 					"sec-fetch-mode": "cors",
@@ -23408,7 +22635,6 @@ var $$IMU_EXPORT$$;
 					if (cookies.gt) {
 						headers["x-guest-token"] = cookies.gt;
 					} else {
-						// TODO: fetch
 						console_warn("Guest token not found");
 						return cb(null);
 					}
@@ -23435,10 +22661,8 @@ var $$IMU_EXPORT$$;
 				}
 			};
 			var query_tweet = function(tweet_id, cb) {
-				//var url = "https://api.twitter.com/2/timeline/conversation/" + tweet_id + ".json";
 				var url = "https://twitter.com/i/api/2/timeline/conversation/" + tweet_id + ".json";
 				var queries = {
-					// u = useless, but adding to match twitter's api
 					include_profile_interstitial_type: "1",
 					include_blocking: "1",
 					include_blocked_by: "1",
@@ -23460,8 +22684,6 @@ var $$IMU_EXPORT$$;
 					include_ext_media_availability: "true",
 					send_error_codes: "true",
 					simple_quoted_tweet: "true",
-					//referer: "home", // only sent in dynamic
-					//controller_data: atob(...) // ???, only sent in dynamic
 					count: "20",
 					include_ext_has_birdwatch_notes: "false",
 					ext: "mediaStats%2ChighlightedLabel"
@@ -23506,7 +22728,6 @@ var $$IMU_EXPORT$$;
 				}
 				if (media.video_info && media.video_info.variants) {
 					var added_mimes = new_set();
-					// thanks to NekoAlosama on github for reporting: https://github.com/qsniyg/maxurl/issues/1005
 					media.video_info.variants.sort(function(a, b) {
 						if (a.content_type === "application/x-mpegURL")
 							return -1;
@@ -23539,12 +22760,9 @@ var $$IMU_EXPORT$$;
 					});
 				}
 				var media_url = media.media_url_https;
-				// animated_gif/video are not affected
 				if (false && media.type === "photo") {
 					var largest_size = null;
 					var largest_size_br = 0;
-					// all sizes are required: https://twitter.com/fkey123/status/1331186716795781122/photo/1
-					// returns large as the largest size, but it doesn't work, only medium does (but sometimes orig does??)
 					obj_foreach(media.sizes, function(key, size) {
 						var our_br = size.w * size.h;
 						if (our_br > largest_size_br) {
@@ -23557,8 +22775,6 @@ var $$IMU_EXPORT$$;
 					}
 					if (largest_size !== "orig") {
 						urls.push(media_url.replace(/\?.*$/, "?name=orig"));
-						//urls.push(media_url.replace(/\.[^/]+$/, ".png?name=orig"));
-						//urls.push(media_url.replace(/\.[^/]+$/, ".jpg?name=orig"));
 					}
 				}
 				var larger_media = common_functions["get_largest_twimg"](media_url, options);
@@ -23633,7 +22849,6 @@ var $$IMU_EXPORT$$;
 							var card_url = card.url;
 							var card_image = null;
 							if (card.binding_values) {
-								// in case the url is shortened
 								if (card.binding_values.player_url) {
 									card_url = card.binding_values.player_url.string_value;
 								}
@@ -23654,7 +22869,6 @@ var $$IMU_EXPORT$$;
 								is_pagelink: true
 							});
 						}
-						//console_log(data, obj, currenturls);
 						return cb(fillobj_urls(currenturls, obj));
 					});
 				}
@@ -23694,45 +22908,21 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		if (domain === "files.yande.re") {
-			// https://files.yande.re/sample/c3e3fd1d97b4e237e996e6b1bfafa4e6/yande.re%20190111%20sample%20anime_tenchou%20anizawa_meito%20cosplay%20hiiragi_kagami%20izumi_konata%20kusakabe_misao%20lucky_star%20seifuku%20sword%20takara_miyuki%20thighhighs%20vocaloid.jpg
-			//   https://files.yande.re/image/c3e3fd1d97b4e237e996e6b1bfafa4e6/yande.re%20190111%20anime_tenchou%20anizawa_meito%20cosplay%20hiiragi_kagami%20izumi_konata%20kusakabe_misao%20lucky_star%20seifuku%20sword%20takara_miyuki%20thighhighs%20vocaloid.jpg
-			// thanks to Logidy on greasyfork for reporting the issue below: https://greasyfork.org/en/forum/discussion/53007/x?locale=en
-			// https://files.yande.re/jpeg/fe3070fd3aa5a017397cd0d3b2163448/yande.re%20519701%20cleavage%20clyde_s%20girls_frontline%20kalina_%28girls_frontline%29%20megane%20no_bra%20open_shirt%20seifuku%20thighhighs%20weapon.jpg
-			//   https://files.yande.re/image/fe3070fd3aa5a017397cd0d3b2163448/yande.re%20519701%20cleavage%20clyde_s%20girls_frontline%20kalina_%28girls_frontline%29%20megane%20no_bra%20open_shirt%20seifuku%20thighhighs%20weapon.png
 			return add_extensions(src
 				.replace(/\/(?:sample|jpeg)\/+([0-9a-f]+\/)/, "/image/$1"));
 		}
 		if (domain === "assets.yande.re") {
-			// https://assets.yande.re/data/preview/5c/0d/5c0dce008b820e531309e54a17c83f3a.jpg
-			//   https://files.yande.re/image/5c0dce008b820e531309e54a17c83f3a.jpg
-			// https://assets.yande.re/data/preview/1f/c5/1fc58ed6d37b0392b8881de9507d0a65.jpg
-			//   https://files.yande.re/image/1fc58ed6d37b0392b8881de9507d0a65.png
 			return add_extensions(src.replace(/:\/\/assets.yande.re\/data\/preview\/[0-9a-f]+\/[0-9a-f]+\//, "://files.yande.re/image/"));
 		}
 		if (domain_nowww === "redditstatic.com") {
-			// https://www.redditstatic.com/sprite-reddit.[random characters].png
-			// https://www.redditstatic.com/sprite-expando.[random characters].png
-			// https://www.redditstatic.com/sidebar-grippy-show.png
-			// https://www.redditstatic.com/icon_planet.png
 			if (/^[a-z]+:\/\/[^/]+\/+(?:sprite|sidebar|icon)[-_][^/]+\./.test(src))
 				return {
 					url: src,
 					bad: "mask"
 				};
-			// thanks to Liz for reporting
-			// https://www.redditstatic.com/gold/awards/icon/Big_Brain_Time_48.png
-			//   https://www.redditstatic.com/gold/awards/icon/Big_Brain_Time_512.png
 			return src.replace(/(\/gold\/+awards\/+icon\/+[^/]+)_[1-4]?[0-9]{2}\./, "$1_512.");
 		}
 		if (domain === "preview.redd.it") {
-			// https://preview.redd.it/7nte0k30d7p11.jpg?width=640&crop=smart&s=3045865f8ce23192e486c9f35de800bd6e2a685b
-			//   https://i.redd.it/7nte0k30d7p11.jpg
-			// thanks to Liz on discord:
-			// https://preview.redd.it/award_images/t5_22cerq/2juh333m40n51_Masterpiece.png?width=48&height=48&auto=webp&s=80eb767a877a78c181af1385c2ed98f067b38092
-			//   https://i.redd.it/award_images/t5_22cerq/2juh333m40n51_Masterpiece.png
-			// thanks to pointydev: https://github.com/qsniyg/maxurl/issues/1133
-			// https://preview.redd.it/black-eyed-pees-grail-v0-87udn5gszb6a1.jpg?auto=webp&s=b9ceef6cf0f71ab67ac319e35e41c5c08e3d6553
-			//   https://i.redd.it/87udn5gszb6a1.jpg
 			return src.replace(/:\/\/preview\.redd\.it\/(award_images\/+t[0-9]*_[0-9a-z]+\/+)?(?:[-0-9a-z]+-)?([^/.]*\.[^/.?]*)\?.*$/, "://i.redd.it/$1$2");
 		}
 		if (domain === "i.redd.it" && src.match(/^[a-z]+:\/\/[^/]*\/[0-9a-z]+\.[^-/._?#]*$/)) {
@@ -23742,15 +22932,12 @@ var $$IMU_EXPORT$$;
 			};
 		}
 		if (domain === "i.reddituploads.com") {
-			// https://i.reddituploads.com/59933254fd6e44228dc5f0fef3d850af?fit=max&h=1536&w=1536&s=6db141a8ef89df0720e6666f3e7e26bf
-			//   https://i.reddituploads.com/59933254fd6e44228dc5f0fef3d850af
 			newsrc = src.replace(/(:\/\/[^/]*\/[0-9a-f]+)\?.*$/, "$1");
 			if (newsrc !== src)
 				return newsrc;
 		}
 		if (host_domain_nosub === "reddit.com" && options.element) {
 			if (src === "" && options.element.tagName === "A" && options.element.classList.contains("image")) {
-				// ui elements, e.g. by RES, svg images, ~800 bytes
 				return {
 					url: origsrc,
 					bad: "mask"
@@ -23788,8 +22975,6 @@ var $$IMU_EXPORT$$;
 			var request_reddit_api = function(id, cb) {
 				api_query("reddit_api:" + id, {
 					url: "https://www.reddit.com/api/info.json?id=" + id,
-					// thanks to Noodlers and Zui on discord for reporting, the following user agent returns Blocked:
-					// Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.0.0 Safari/537.36
 					headers: {
 						"User-Agent": ""
 					},
@@ -23822,8 +23007,6 @@ var $$IMU_EXPORT$$;
 						obj.extra.caption = item.title;
 					}
 					var is_selfpost = item.domain && /^self\./.test(item.domain) && item.url && /^[a-z]+:\/\/[^/]*reddit\.com\/r\//.test(item.url);
-					// https://www.reddit.com/r/firefox/comments/97dqq1/is_there_a_functional_bookmarks_manager_extension/
-					// item.preview.enabled is false also on link/image posts, don't use that
 					if (!is_selfpost && item.preview && item.preview.images) {
 						var preview_image;
 						if (item.preview.images[0].variants.gif)
@@ -23887,7 +23070,6 @@ var $$IMU_EXPORT$$;
 				website_regex: /^[a-z]+:\/\/[^/]+\/+(?:(?:(?:r|u(?:ser)?)\/+[^/]+\/+comments|gallery)\/+)?([a-z0-9]+)(?:\/+.*)?(?:[?#].*)?$/,
 				run: function(cb, match) {
 					var id = match[1];
-					// t3 = link
 					request_reddit("t3_" + id, function(data) {
 						cb(data);
 					});
@@ -23911,13 +23093,8 @@ var $$IMU_EXPORT$$;
 			var current = options.element;
 			do {
 				if (current.tagName === "DIV") {
-					// data-testid: new reddit, subreddit page
-					// id: new reddit, post page (with a <div data-test-id="post-content"> element below)
-					// data-fullname: old reddit, subreddit page
 					var testid = current.getAttribute("data-testid") || current.getAttribute("data-fullname") || current.getAttribute("id");
 					if (testid && testid === "post-container") {
-						// thanks to secret soup on discord for reporting:
-						// new reddit, post page video
 						testid = current.getAttribute("id");
 					}
 					if (testid) {
@@ -23929,75 +23106,18 @@ var $$IMU_EXPORT$$;
 				}
 			} while (current = current.parentElement);
 		}
-		if (string_indexof(src, "/wp-content/uploads/") >= 0 ||
-			//domain.indexOf(".files.wordpress.com") >= 0 || -- no evidence of this actually working, other patterns don't work for it either
-			string_indexof(src, "/wp/uploads/") >= 0) {
-			src = src.replace(/\(pp_w[0-9]+_h[0-9]+\)(\.[^/.]*)$/, "$1");
-		}
-		// doesn't work:
-		// https://thechive.files.wordpress.com/2018/06/funny-football-memes-fifa-world-cup-27-5b34f3ecb603a__700.jpg
-		if (
-		//domain.indexOf(".files.wordpress.com") >= 0 ||
-		// https://static.boredpanda.com/blog/wp-content/uploads/2017/08/GW-130817_DSC1426-copy-599f17eddebf2__880.jpg
-		//   https://static.boredpanda.com/blog/wp-content/uploads/2017/08/GW-130817_DSC1426-copy-599f17eddebf2.jpg
-		string_indexof(src, "/wp-content/uploads/") >= 0 ||
-			string_indexof(src, "/wp/uploads/") >= 0) {
-			// http://www.randomnude.com/wp-content/uploads/sites/39/2017/06/gomez__7__1.jpg
-			src = src.replace(/__[0-9]{2,}(\.[^/.]*)$/, "$1");
-		}
-		// https://www.thetrace.org/wp-content/uploads/2017/04/Cleveland_Gun_Survivors_065-5394x0-c-default.jpg
-		if (string_indexof(src, "/wp-content/uploads/") >= 0 ||
-			string_indexof(src, "/wp/uploads/") >= 0) {
-			src = src.replace(/-[0-9]+x[0-9]+-c-default(\.[^/.]*)$/, "$1");
+		if (domain_nowww === "mingtuiw.com" && /\/wp-content\/+uploads\//.test(src)) {
+			return src.replace(/-[0-9]+x[0-9]+(?:@[0-9]+x)?(\.[^/.]+(?:[?#].*)?)$/, "$1");
 		}
 		if (domain === "i.pximg.net" ||
-			// thanks to TheLastZombie on github: https://github.com/qsniyg/maxurl/pull/598
-			// https://itsukiyu.fanbox.cc/
-			// https://pixiv.pximg.net/c/1620x580_90_a2_g5/fanbox/public/images/creator/439106/cover/4V3LygXYwPDd2IIR8RxBM4Ht.jpeg
-			//   https://pixiv.pximg.net/fanbox/public/images/creator/439106/cover/4V3LygXYwPDd2IIR8RxBM4Ht.jpeg
-			// https://pixiv.pximg.net/c/160x160_90_a2_g5/fanbox/public/images/user/439106/icon/NTphzOei0lqoXSSMkPuwY4rV.jpeg
-			//   https://pixiv.pximg.net/fanbox/public/images/user/439106/icon/NTphzOei0lqoXSSMkPuwY4rV.jpeg
-			// https://pixiv.pximg.net/c/936x600_90_a2_g5/fanbox/public/images/plan/109474/cover/3rfOxbEV0Vwr6FWeZJUB6Fak.jpeg
-			//   https://pixiv.pximg.net/fanbox/public/images/plan/109474/cover/3rfOxbEV0Vwr6FWeZJUB6Fak.jpeg
 			domain === "pixiv.pximg.net" ||
-			// thanks to Nguyen on discord:
-			// https://pixiv.moe/illust/95993720
-			// https://i.pixiv.re/img-master/img/2022/02/04/16/50/20/95993720_p0_master1200.jpg
-			//   https://i.pixiv.re/img-original/img/2022/02/04/16/50/20/95993720_p0.png
 			domain === "i.pixiv.re" ||
-			// https://tc-pximg01.techorus-cdn.com/c/250x250_80_a2/img-master/img/2010/07/31/02/46/26/12235259_p0_square1200.jpg
-			//   https://tc-pximg01.techorus-cdn.com/img-original/img/2010/07/31/02/46/26/12235259_p0.png
 			(domain_nosub === "techorus-cdn.com" && /^tc-pximg[0-9]*\./.test(domain))) {
-			// only works if the referrer is correct
-			// https://i.pximg.net/c/600x600/img-master/img/2017/06/25/17/53/43/63558968_p0_master1200.jpg
-			//   https://i.pximg.net/img-original/img/2017/06/25/17/53/43/63558968_p0.jpg
-			// https://i.pximg.net/c/600x600/img-master/img/2017/06/10/23/13/15/63320604_p0_master1200.jpg
-			//   https://i.pximg.net/c/600x600/img-master/img/2017/06/10/23/13/15/63320604_p0_master1200.jpg
-			// https://i.pximg.net/c/600x600/img-master/img/2017/06/10/23/13/15/63320604_p0_master1200.jpg
-			//   https://i.pximg.net/img-original/img/2017/06/10/23/13/15/63320604_p0.jpg
-			//   https://i.pximg.net/img-original/img/2017/06/10/23/13/15/63320604_p0.jpg
-			//   referer: https://www.pixiv.net/member_illust.php?mode=medium&illust_id=63320604
-			// https://i.pximg.net/c/600x1200_90/img-master/img/2017/12/26/20/00/02/66469686_p0_master1200.jpg
-			//   https://i.pximg.net/img-master/img/2017/12/26/20/00/02/66469686_p0_master1200.jpg
-			//   https://i.pximg.net/img-original/img/2017/12/26/20/00/02/66469686_p0.jpg
-			//   https://www.pixiv.net/member_illust.php?mode=manga&illust_id=66469686
-			// https://i.pximg.net/c/128x128/img-master/img/2017/07/15/21/52/41/63880467_p0_square1200.jpg
-			//   https://i.pximg.net/img-original/img/2017/07/15/21/52/41/63880467_p0.jpg
-			// https://i.pximg.net/c/128x128/img-master/img/2016/04/20/21/54/33/56447170_p0_square1200.jpg
-			//   https://i.pximg.net/img-original/img/2016/04/20/21/54/33/56447170_p0.png
-			// https://i.pximg.net/c/250x250_80_a2/img-original/img/2018/05/20/14/43/30/68834563_p0.png
-			//   https://i.pximg.net/img-original/img/2018/05/20/14/43/30/68834563_p0.png
-			// https://i.pximg.net/user-profile/img/2008/06/17/01/28/01/171098_fc06efd15628e2ee252941ae5298b5ff_170.jpg
-			//   https://i.pximg.net/user-profile/img/2008/06/17/01/28/01/171098_fc06efd15628e2ee252941ae5298b5ff.jpg
-			// thanks to coo11 on github:
-			// https://i.pximg.net/c/250x250_80_a2/custom-thumb/img/2020/12/08/00/00/18/86162834_p0_custom1200.jpg
-			//   https://i.pximg.net/img-original/img/2020/12/08/00/00/18/86162834_p0.jpg
 			newsrc = src
 				.replace(/(\/user-profile\/+img\/.*\/[0-9]+_[0-9a-f]{20,})_[0-9]+(\.[^/.]+)(?:[?#].*)?$/, "$1$2")
 				.replace(/\/c\/[0-9]+x[0-9]+(?:_[0-9]+)?(?:_[ag][0-9]+)*\//, "/")
 				.replace(/\/(?:img-master|custom-thumb)\//, "/img-original/")
 				.replace(/(\/[0-9]+_p[0-9]+)_[^/]*(\.[^/.]*)$/, "$1$2");
-			//var referer_url = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=" + src.replace(/.*\/([0-9]+)_[^/]*$/, "$1");
 			var referer_url = "https://www.pixiv.net/";
 			if (domain === "pixiv.pximg.net" || domain_nosub === "pixiv.re") {
 				referer_url = null;
@@ -24034,8 +23154,6 @@ var $$IMU_EXPORT$$;
 			return retobj;
 		}
 		if (domain_nowww === "pixiv.net") {
-			// thanks to kattjevfel on github: https://github.com/qsniyg/maxurl/issues/464
-			// multi-page post: https://www.pixiv.net/en/artworks/84777803
 			var query_pixiv_page = function(id, page, cb) {
 				var url = "https://www.pixiv.net/artworks/" + id;
 				api_query("pixiv_page:" + id, {
@@ -24046,7 +23164,6 @@ var $$IMU_EXPORT$$;
 					if (obj[0].album_info) {
 						var links = obj[0].album_info.links;
 						for (var i = 0; i < links.length; i++) {
-							// != for string/int comparison
 							if (i != page) {
 								links[i].is_current = false;
 								continue;
@@ -24064,7 +23181,6 @@ var $$IMU_EXPORT$$;
 					}
 					var json = JSON_parse(decode_entities(match[1]));
 					var illust = json.illust[id];
-					//console_log(json, json.illust, illust);
 					var obj = {
 						extra: {
 							page: resp.finalUrl
@@ -24135,52 +23251,20 @@ var $$IMU_EXPORT$$;
 		}
 		if (domain_nosub === "booth.pm" && domain.match(/s[0-9]*\.booth\.pm/) ||
 			domain === "booth.pximg.net") {
-			// https://s2.booth.pm/c/c_300/57b9c1d2-83c2-43ca-8368-8caef0f77ecf/i/740855/ce009797-aea2-4084-a029-a766159fa233.jpg
-			//   https://s2.booth.pm/c/c_300/57b9c1d2-83c2-43ca-8368-8caef0f77ecf/i/740855/ce009797-aea2-4084-a029-a766159fa233.jpg
-			// https://s2.booth.pm/c/f_128/users/4030105/icon_image/2a5bf25c-cf1e-4aaa-a537-483ce0a7cbb7.jpg
-			//   https://s2.booth.pm/users/4030105/icon_image/2a5bf25c-cf1e-4aaa-a537-483ce0a7cbb7.jpg
-			// https://s2.booth.pm/7279e569-4081-41f9-9188-21d28fa637cc/i/674179/e994efb8-f8a2-45e9-9b5b-27815aec0abc_c_72x72.jpg
-			//   https://s2.booth.pm/7279e569-4081-41f9-9188-21d28fa637cc/i/674179/e994efb8-f8a2-45e9-9b5b-27815aec0abc.jpg
-			// https://s.booth.pm/c/f_620/5ee95071-e09f-4178-bf7a-8e91d5520f91/i/422674/60a4c70c-a57d-421a-bd0b-89bd3e3be1bf.jpg
-			//   https://s.booth.pm/5ee95071-e09f-4178-bf7a-8e91d5520f91/i/422674/60a4c70c-a57d-421a-bd0b-89bd3e3be1bf.jpg
-			// doesn't work for all:
-			// https://s.booth.pm/c/f_620/c9fda5ec-b0a8-4ed6-971e-72629be03365/i/752229/c723db57-697e-4bde-8d6f-307a52747400.jpg
-			//   https://s.booth.pm/c9fda5ec-b0a8-4ed6-971e-72629be03365/i/752229/c723db57-697e-4bde-8d6f-307a52747400.jpg -- doesn't work
-			// doesn't work for all, some are ".JPG" in the end instead of ".jpg"
 			newsrc = src
 				.replace(/\/c\/[a-z]_[0-9]+\//, "/")
 				.replace(/_c_[0-9]+x[0-9]+(\.[^/.]*)$/, "$1");
 			if (newsrc !== src) {
 				return add_full_extensions(newsrc);
 			}
-			// https://booth.pximg.net/c/128x128/users/30729/icon_image/8036b56a-897e-44ec-a192-aa418b9df730_base_resized.jpg
-			//   https://booth.pximg.net/users/30729/icon_image/8036b56a-897e-44ec-a192-aa418b9df730_base_resized.jpg
-			//   https://booth.pximg.net/users/30729/icon_image/8036b56a-897e-44ec-a192-aa418b9df730.jpg
-			// https://booth.pximg.net/c/300x300_a2_g5/c363684d-1871-4a28-bab5-361cc883ffb4/i/921726/52ebec3e-b6fb-489b-aa7e-c6b610e1a4a8_base_resized.jpg
-			//   https://booth.pximg.net/c363684d-1871-4a28-bab5-361cc883ffb4/i/921726/52ebec3e-b6fb-489b-aa7e-c6b610e1a4a8_base_resized.jpg
-			//   https://booth.pximg.net/c363684d-1871-4a28-bab5-361cc883ffb4/i/921726/52ebec3e-b6fb-489b-aa7e-c6b610e1a4a8.jpg -- 404
-			// https://booth.pximg.net/c/300x300_a2_g5/0008efae-fa87-4871-84c3-d7ae38577fb0/i/963716/52fccf85-ab15-4585-a551-00d347553ccb_base_resized.jpg -- 300x300
-			//   https://booth.pximg.net/0008efae-fa87-4871-84c3-d7ae38577fb0/i/963716/52fccf85-ab15-4585-a551-00d347553ccb.jpg -- 2000x3000
-			// https://booth.pximg.net/c/150x150/3c32475d-0f04-4157-b5bb-6a56cd5d633f/i/178794/1174b9d1-9f8a-4525-88e8-77c7fc7cf858_base_resized.jpg -- works
-			//   https://booth.pximg.net/3c32475d-0f04-4157-b5bb-6a56cd5d633f/i/178794/1174b9d1-9f8a-4525-88e8-77c7fc7cf858_base_resized.jpg -- works
-			//   https://booth.pximg.net/3c32475d-0f04-4157-b5bb-6a56cd5d633f/i/178794/1174b9d1-9f8a-4525-88e8-77c7fc7cf858.jpg -- 404
-			// https://booth.pximg.net/users/1974112/icon_image/4c012645-7cdf-4023-a26f-15b0434c4006_base_resized.jpg
-			//   https://booth.pximg.net/users/1974112/icon_image/4c012645-7cdf-4023-a26f-15b0434c4006.jpeg
-			// https://s2.booth.pm/bf6ae946-2384-473f-b9bc-3f72205b983e/i/1885913/124255bf-702b-4e62-9824-f1fe363716d8_base_resized.jpg
-			//   https://s2.booth.pm/bf6ae946-2384-473f-b9bc-3f72205b983e/i/1885913/124255bf-702b-4e62-9824-f1fe363716d8.jpeg
-			// thanks to fireattack on github for reporting this issue: https://github.com/qsniyg/maxurl/issues/33
-			// https://booth.pximg.net/30cd84bf-4155-491d-abee-5770b2947e00/i/1236274/0df91fe3-7ce5-41ad-89f8-a6a52625e752_base_resized.jpg
-			//   https://booth.pximg.net/30cd84bf-4155-491d-abee-5770b2947e00/i/1236274/0df91fe3-7ce5-41ad-89f8-a6a52625e752.png
 			newsrc = src.replace(/(:\/\/[^/]*\/)c\/[0-9]+x[0-9]+(?:_[^/]*)?\//, "$1");
 			if (newsrc !== src)
 				return add_full_extensions(newsrc);
 			newsrc = src.replace(/(\/[-0-9a-f]+)_[^/.]*(\.[^/.]*)$/, "$1$2");
 			if (newsrc !== src)
 				return add_full_extensions(newsrc);
-			//return src
-			//    .replace(/\/c\/[^/]*\//, "/")
-			//    .replace(/(\/[^/.]*)_c_[0-9]+x[0-9]+(\.[^/.]*$)/, "$1$2");
 		}
+		// 规则结束
 		if (options.null_if_no_change) {
 			if (src !== origsrc)
 				return src;
@@ -24188,7 +23272,6 @@ var $$IMU_EXPORT$$;
 		}
 		return src;
 	}
-	// -- end bigimage --
 	var get_helpers = function(options) {
 		var host_domain = "";
 		var host_domain_nowww = "";
@@ -24207,7 +23290,6 @@ var $$IMU_EXPORT$$;
 			if (options.window)
 				window = options.window;
 		} catch (e) {
-			//console_warn("Failed to set document/window", e);
 		}
 		var new_image = function(src) {
 			var img = document_createElement("img");
@@ -24300,7 +23382,6 @@ var $$IMU_EXPORT$$;
 						};
 					}
 				}
-				// e.g. for picture elements with source.srcset
 				if (!options.get_img_src) {
 					options.get_img_src = get_img_src;
 				}
@@ -24349,84 +23430,6 @@ var $$IMU_EXPORT$$;
 			}
 			return get_next_in_gallery(thumb, nextprev);
 		};
-		if (host_domain_nosub === "instagram.com") {
-			return {
-				// FIXME: is this even needed anymore?
-				element_ok: function(el) {
-					// TODO: improve
-					if (el.tagName === "VIDEO") {
-						return true;
-					}
-					return "default";
-				},
-				gallery: function(el, nextprev) {
-					// disabling this section entirely due to https://github.com/qsniyg/maxurl/issues/726
-					// it should be redundant with album_info
-					if (!el || true)
-						return "default";
-					var query_el = el;
-					if (!el.parentElement) { // check if it's a fake element returned by this function
-						query_el = options.element;
-					}
-					var info = common_functions["instagram_find_el_info"](document, query_el, options.host_url);
-					var can_apply = false;
-					var use_default_after = false;
-					for (var i = 0; i < info.length; i++) {
-						if ((info[i].type === "post" && (info[i].subtype === "popup" || info[i].subtype === "page" || info[i].subtype === "home" || (info[i].subtype === "link" && options.rule_specific.instagram_gallery_postlink && !options.is_counting))) ||
-							info[i].type === "story") {
-							info[i].all = true;
-							can_apply = true;
-							if (info[i].type === "post" && info[i].subtype === "link")
-								use_default_after = true;
-						}
-					}
-					if (can_apply) {
-						var imageid_el = common_functions["instagram_get_el_for_imageid"](el);
-						var imageid_el_src = common_functions["instagram_get_image_src_from_el"](imageid_el);
-						var our_imageid = common_functions["instagram_get_imageid"](imageid_el_src);
-						var add = nextprev ? 1 : -1;
-						common_functions["instagram_parse_el_info"](real_api_cache, options.do_request, options.rule_specific.instagram_use_app_api, options.rule_specific.instagram_dont_use_web, options.rule_specific.instagram_prefer_video_quality, info, options.host_url, function(data) {
-							if (!data) {
-								return options.cb("default");
-							}
-							for (var i = nextprev ? 0 : 1; i < data.length - (nextprev ? 1 : 0); i++) {
-								var current_imageid = common_functions["instagram_get_imageid"](data[i].src);
-								var current_videoid = "null";
-								if (data[i].video) {
-									current_videoid = common_functions["instagram_get_imageid"](data[i].video);
-								}
-								if (our_imageid === current_imageid || our_imageid === current_videoid) {
-									var our_data = data[i + add];
-									var cb_media = new_media(our_data.video || our_data.src, our_data.video);
-									cb_media.setAttribute("data-imu-info", JSON_stringify(deepcopy(info, { json: true })));
-									cb_media.setAttribute("data-imu-data", JSON_stringify(deepcopy(our_data, { json: true })));
-									return options.cb(cb_media);
-								}
-							}
-							if (!use_default_after)
-								return options.cb(null);
-							else
-								return options.cb(get_next_in_gallery(options.element, nextprev));
-						});
-						return "waiting";
-					}
-					return "default";
-				}
-			};
-		}
-		if (host_domain_nosub === "tiktok.com") {
-			return {
-				gallery: function(el, nextprev) {
-					if (el.tagName === "VIDEO" && el.parentElement && el.parentElement.parentElement) {
-						if (el.parentElement.classList.contains("video-card") &&
-							el.parentElement.parentElement.classList.contains("image-card")) {
-							return get_next_in_gallery(el.parentElement.parentElement, nextprev);
-						}
-					}
-					return "default";
-				}
-			};
-		}
 		if (host_domain_nowww === "twitter.com") {
 			return {
 				gallery: function(el, nextprev) {
@@ -24436,7 +23439,6 @@ var $$IMU_EXPORT$$;
 					var get_img_from_photo_a = function(el) {
 						var imgel = el.querySelector("img");
 						if (imgel) {
-							// don't return the <img> element because opacity: 0
 							var prev = imgel.previousElementSibling;
 							if (prev && prev.tagName === "DIV" && prev.style.backgroundImage)
 								return prev;
@@ -24462,7 +23464,6 @@ var $$IMU_EXPORT$$;
 							return "default";
 						}
 					};
-					// tweet albums: https://twitter.com/phoronix/status/1229117085432926209
 					var current = el;
 					while ((current = current.parentElement)) {
 						if (is_photo_a(current)) {
@@ -24482,7 +23483,6 @@ var $$IMU_EXPORT$$;
 					return "default";
 				},
 				element_ok: function(el) {
-					//var tweet = common_functions["get_twitter_video_tweet"](el, window);
 					if (el.tagName === "VIDEO") {
 						var tweet = common_functions["get_twitter_tweet_link"](el);
 						if (tweet) {
@@ -24490,18 +23490,6 @@ var $$IMU_EXPORT$$;
 						}
 					}
 					return "default";
-				}
-			};
-		}
-		if (host_domain_nosub === "youtube.com") {
-			return {
-				element_ok: function(el) {
-					// thanks to ambler on discord for reporting
-					if (el.tagName === "DIV" && el.id === "background") {
-						var newel = el.querySelector("div#backgroundFrontLayer");
-						if (newel)
-							return newel;
-					}
 				}
 			};
 		}
@@ -24516,7 +23504,6 @@ var $$IMU_EXPORT$$;
 					return false;
 				}
 			});
-			// unable to find current link
 			if (current_link_id < 0)
 				return null;
 			for (var i = 0; i < album_info.links.length; i++) {
@@ -24528,7 +23515,6 @@ var $$IMU_EXPORT$$;
 			album_info.links[current_link_id].is_current = true;
 			return album_info.links[current_link_id].url;
 		}
-		// unsupported type
 		return null;
 	};
 	var get_album_info_gallery = function(popup_obj, el, nextprev) {
@@ -24554,11 +23540,9 @@ var $$IMU_EXPORT$$;
 		if (typeof result === "string") {
 			var url = result;
 			result = document_createElement("img");
-			// don't set src, because otherwise the browser will try to load it
 			result.setAttribute("data-imu-fake-src", url);
 		}
 		if (!result.hasAttribute("imu-album-info")) {
-			// album_info can be modified by _get_album_info_gallery, so we must re-stringify it
 			result.setAttribute("imu-album-info", JSON_stringify(album_info));
 		}
 		return result;
@@ -24683,7 +23667,6 @@ var $$IMU_EXPORT$$;
 				options.rule_specific[rule_specific_value] = settings[rule_specific];
 			}
 		}
-		// Doing this here breaks things like Imgur, which will redirect to an image if a video was opened in a new tab
 		if (false && !settings.allow_video) {
 			options.exclude_videos = true;
 		} else {
@@ -24692,7 +23675,6 @@ var $$IMU_EXPORT$$;
 		return options;
 	};
 	var bigimage_recursive = function(url, options) {
-		// breaks element_ok on elements without sources
 		if (false && !url)
 			return url;
 		if (!options)
@@ -24727,13 +23709,10 @@ var $$IMU_EXPORT$$;
 		var endhref;
 		var currenthref = url;
 		var pasthrefs = [url];
-		//var lastobj = fillobj(newhref);
-		//var lastobj = newhref;
 		var pastobjs = [];
 		var currentobj = null;
 		var used_cache = false;
 		var loop_i = 0;
-		// for tests
 		var our_bigimage = options._internal_bigimage || bigimage;
 		var do_cache = function() {
 			nir_debug("bigimage_recursive", "do_cache (endhref, currentobj):", deepcopy(endhref), deepcopy(currentobj));
@@ -24803,7 +23782,6 @@ var $$IMU_EXPORT$$;
 				return false;
 			}
 			var copy_props = ["extra", "album_info"];
-			// Copy important old properties
 			var important_properties = {};
 			if (pastobjs.length > 0) {
 				if (pastobjs[0].likely_broken)
@@ -24811,7 +23789,6 @@ var $$IMU_EXPORT$$;
 				if (pastobjs[0].fake)
 					important_properties.fake = pastobjs[0].fake;
 				array_foreach(copy_props, function(prop) {
-					//console_log(prop, deepcopy(pastobjs[0]));
 					if (prop in pastobjs[0]) {
 						important_properties[prop] = deepcopy(pastobjs[0][prop]);
 					}
@@ -24828,7 +23805,6 @@ var $$IMU_EXPORT$$;
 					}
 					i--;
 				};
-				// Remove null URLs
 				if (obj.url === null && !obj.waiting) {
 					remove_obj();
 					continue;
@@ -24836,7 +23812,6 @@ var $$IMU_EXPORT$$;
 				if (obj.url === "" && url_is_data) {
 					obj.url = origurl;
 				}
-				// Remove problems in exclude_problems
 				for (var problem in obj.problems) {
 					if (obj.problems[problem] &&
 						array_indexof(options.exclude_problems, problem) >= 0) {
@@ -24888,20 +23863,16 @@ var $$IMU_EXPORT$$;
 			} else {
 				currentobj = null;
 			}
-			// check if objified (our object) has the same url/href as the last url (currenthref)
 			if (same_url(currenthref, objified) && !forcerecurse) {
 				nir_debug("bigimage_recursive", "parse_bigimage: sameurl(currenthref, objified) == true (newhref, nh1, pastobjs)", deepcopy(currenthref), deepcopy(objified), deepcopy(newhref), deepcopy(newhref1), deepcopy(pastobjs));
-				// FIXME: this is a terrible hack
 				try {
 					var cond = !options.fill_object || (newhref[0].waiting === true && !objified[0].waiting);
 					if (cond) {
 						newhref = objified;
 					} else {
-						// TODO: refactor
 						var _apply = function(newobj) {
 							array_foreach(basic_fillobj(newobj), function(sobj, i) {
 								sobj = deepcopy(sobj);
-								// FIXME? untested (url should resolve to the one right below it)
 								if (!sobj.url) {
 									sobj.url = currenthref;
 								}
@@ -24915,15 +23886,9 @@ var $$IMU_EXPORT$$;
 								});
 							});
 						};
-						// commenting out because apply doesn't exist
 						/*
-						// fixme: apply doesn't exist??
 						apply(newhref);
-						// strikinglycdn needs newhref1 to be applied, because it has two rules, the cloudinary one, then the {url: src, can_head: false} one
-						// the second one is only set in newhref1, not newhref
 						apply(newhref1);
-
-						// this also needs to be commented out, because normally "apply" not existing would throw an error, preventing this from running.
 						newhref = null;
 						currentobj = pastobjs[0];
 						*/
@@ -24931,14 +23896,6 @@ var $$IMU_EXPORT$$;
 					if (false) {
 						if (!cond) {
 							array_foreach(copy_props, function(prop) {
-								// using newhref1 instead of objified because otherwise it'll always be true (objified is the filled object, all props are in it)
-								// the prop_in_objified check breaks facebook albums
-								// [photo.php, post] -> [url+extra, photo.php] (album_info is missing because url is just a url, doesn't have album_info)
-								//   but newhref = [url+extra, photo.php]
-								//   we don't want to disregard newhref, as it contains new information (extra)
-								//   newhref1 = [url]
-								// but removing it breaks normal photos, e.g. mixdrop:
-								// mp4(+headers) -> return src (.mp4 without headers)
 								if (!(prop in newhref[0]) && (prop in important_properties) /*&& prop_in_objified(prop, newhref1)*/) {
 									cond = true;
 									return false;
@@ -24955,14 +23912,9 @@ var $$IMU_EXPORT$$;
 					for (var i = 0; i < pasthrefs.length; i++) {
 						if (same_url(pasthrefs[i], objified)) {
 							nir_debug("bigimage_recursive", "parse_bigimage: sameurl(pasthrefs[" + i + "], objified) == true", deepcopy(pasthrefs[i]), deepcopy(objified), deepcopy(newhref));
-							// TODO: copy changes above here, or better yet, refactor
-							//   copied over the newhref = objified code, hopefully this doesn't break anything
-							//   this is needed for klix.ba when a largest _xxl.jpg is opened in a popup, reported here: https://github.com/qsniyg/maxurl/issues/732
-							// FIXME: is this even correct?
 							var cond = false;
 							if (false && newhref && newhref.length) {
 								array_foreach(copy_props, function(prop) {
-									// using newhref1 instead of objified because otherwise it'll always be true? (objified is the filled object, all props are in it)
 									if (!(typeof newhref[0] === "object" && (prop in newhref[0])) && (prop in important_properties) && prop_in_objified(prop, newhref1)) {
 										cond = true;
 										return false;
@@ -24980,15 +23932,11 @@ var $$IMU_EXPORT$$;
 				newhref = newhref1;
 			}
 			pasthrefs.push(currenthref);
-			// Prepend objified to pastobjs
 			var current_pastobjs = [];
 			array_extend(current_pastobjs, objified);
 			array_extend(current_pastobjs, pastobjs);
 			pastobjs = current_pastobjs;
 			if (false && !waiting) {
-				// lastobj isn't used
-				// commenting out because lastobj doesn't exist
-				//lastobj = newhref;
 			}
 			if (objified[0].norecurse)
 				return false;
@@ -25027,13 +23975,9 @@ var $$IMU_EXPORT$$;
 		var finalize = function() {
 			if (options.fill_object) {
 				nir_debug("bigimage_recursive", "finalize (fillobj(newhref, currentobj), pastobjs)", deepcopy(newhref), deepcopy(currentobj), deepcopy(pastobjs));
-				// why the used_cache check? this breaks e.g. twitter api, where it returns multiple urls [orig, large, etc.] with extra, but the original one (from the twimg) rule doesn't have it
-				// reason why is because fillobj will only look at the first entry from currentobj
 				if ( /*used_cache &&*/newhref === null) {
-					// for some reason, after the TS rewrite, currentobj is not an array. we need to basic_fillobj it
 					endhref = basic_fillobj(deepcopy(currentobj));
 				} else {
-					// the reason for using fillobj(..., currentobj) is for objects that add to the last object (e.g. {url: src, head_wrong_contentlength: true})
 					endhref = fillobj(deepcopy(newhref), currentobj);
 				}
 				if (options.include_pastobjs) {
@@ -25052,7 +23996,6 @@ var $$IMU_EXPORT$$;
 		if (options.cb) {
 			var orig_cb = options.cb;
 			options.cb = function(x) {
-				// Is this needed?
 				if (false) {
 					for (var i = 0; i < pastobjs.length; i++) {
 						if (pastobjs[i].url === null && pastobjs[i].waiting) {
@@ -25079,8 +24022,6 @@ var $$IMU_EXPORT$$;
 					} else if (is_array(endhref) && endhref[0] && !endhref[0].url) {
 						endhref[0].url = blankurl;
 					}
-					// hacky workaround for https://github.com/qsniyg/maxurl/issues/583
-					// fails with fill_object, but that option hasn't worked properly for a very long time anyways
 					if (!is_array(endhref)) {
 						endhref = [endhref];
 					}
@@ -25127,10 +24068,8 @@ var $$IMU_EXPORT$$;
 			return false;
 		if (!/^https?:\/\//.test(url))
 			return false;
-		// local addresses (IPv4)
 		if (/^[a-z]+:\/\/(127\.0\.0\.1|192\.168\.[0-9]+\.[0-9]+|10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(?:1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|localhost|[^/.]+)\//.test(url))
 			return false;
-		// IPv6 (TODO: implement)
 		if (/^[a-z]+:\/\/(?:[0-9a-f]*\:){1,}\//.test(url))
 			return false;
 		return true;
@@ -25142,7 +24081,6 @@ var $$IMU_EXPORT$$;
 		cookie_cache.clear();
 	}
 	bigimage_recursive.clear_caches = clear_all_caches;
-	// tests
 	if (false) {
 		var fake_bigimage = function(src, options) {
 			var origsrc = src;
@@ -25175,7 +24113,6 @@ var $$IMU_EXPORT$$;
 				for (var key in oldobj[i]) {
 					var old_value = oldobj[i][key];
 					var new_value = newobj[index][key];
-					// e.g. for headers, extra, etc.
 					if (new_value !== old_value && JSON_stringify(new_value) === JSON_stringify(default_object[key])) {
 						newobj[index][key] = old_value;
 					}
@@ -25207,7 +24144,6 @@ var $$IMU_EXPORT$$;
 					obj = obj_merge(obj, oldobj);
 					var images = obj_to_simplelist(obj);
 					for (var i = 0; i < obj.length; i++) {
-						// TODO: also remove bad_if
 						if (obj[i].bad) {
 							var obj_url = obj[i].url;
 							var orig_url = null;
@@ -25292,16 +24228,12 @@ var $$IMU_EXPORT$$;
 							data: data,
 							newurl: newurl,
 							newobj: deepcopy(newobj),
-							// This is why you use objects instead of arrays
-							// I forgot what exactly this variable was supposed to accomplish
 							unk: false
 						});
-						//if (array_indexof(images, newurl) < 0 && newurl !== url || true) {
 						var newurl_index = array_indexof(images, newurl);
 						if (newurl_index < 0 || !obj[newurl_index].norecurse) {
 							bigimage_recursive_loop(newurl, options, query, fine_urls, tried_urls, obj);
 						} else {
-							//obj = obj.slice(array_indexof(images, newurl));
 							obj = [obj[newurl_index]];
 							if (_nir_debug_) {
 								console_log("bigimage_recursive_loop (query): returning", deepcopy(obj), data);
@@ -25349,11 +24281,8 @@ var $$IMU_EXPORT$$;
 		if (fillval) {
 			newel.setAttribute("fill", fillval);
 		}
-		//var header = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n';
 		var header = ""; // unneeded
 		var svgdoc = header + newel.outerHTML;
-		// thanks to Rnksts on discord for these test images (base64 encode didn't work for unicode characters)
-		// https://codepen.io/Rnksts/full/KKdJWvq
 		return "data:image/svg+xml," + encodeURIComponent(svgdoc);
 	};
 	var get_canvas_src = function(el, format) {
@@ -25361,12 +24290,10 @@ var $$IMU_EXPORT$$;
 			return el.toDataURL(format);
 		} catch (e) {
 			console_error(e);
-			// "Tainted canvases may not be exported", CORS error in some pages
 			return;
 		}
 	};
 	var is_valid_src = function(src, isvideo) {
-		// FIXME for audio
 		return src && (!(/^blob:/.test(src)) || !isvideo);
 	};
 	var get_img_src = function(el) {
@@ -25397,7 +24324,6 @@ var $$IMU_EXPORT$$;
 		if (el_tagname === "SOURCE") {
 			if (el.parentElement) {
 				var newsrc = get_img_src(el.parentElement);
-				// avoid adding blob url, e.g. reddit.com videos
 				if (newsrc && is_valid_src(newsrc, true))
 					return newsrc;
 			}
@@ -25411,11 +24337,8 @@ var $$IMU_EXPORT$$;
 				return null;
 			}
 		}
-		// IMG or IFRAME
-		// currentSrc is used if another image is used in the srcset
 		var src = el.currentSrc || el.src;
 		if (!src && el.tagName === "IMG") {
-			// fake-src is used to avoid loading the image
 			var fake_src = el.getAttribute("data-imu-fake-src");
 			if (fake_src)
 				return fake_src;
@@ -25428,7 +24351,6 @@ var $$IMU_EXPORT$$;
 			fill_object: true,
 			exclude_problems: [],
 			use_cache: "read",
-			//use_cache: false,
 			use_api_cache: false,
 			cb: function() { },
 			do_request: function() { }
@@ -25440,7 +24362,6 @@ var $$IMU_EXPORT$$;
 			options.window = window;
 		}
 		var imu_output = bigimage_recursive(src, options);
-		// TODO: consolidate into its own routine
 		if (imu_output.length !== 1)
 			return true;
 		var imu_obj = imu_output[0];
@@ -25451,7 +24372,6 @@ var $$IMU_EXPORT$$;
 				continue;
 			if (!(key in default_object))
 				return true;
-			// e.g. for []
 			if (JSON_stringify(default_object[key]) !== JSON_stringify(imu_obj[key]))
 				return true;
 		}
@@ -25480,9 +24400,7 @@ var $$IMU_EXPORT$$;
 			return;
 		if (url === window.location.href)
 			return;
-		// wrap in try/catch due to nano defender
 		try {
-			// avoid downloading more before redirecting
 			window.stop();
 		} catch (e) {
 		}
@@ -25494,7 +24412,6 @@ var $$IMU_EXPORT$$;
 			}
 		});
 	};
-	// these functions can run before the document has loaded
 	var cursor_wait = function() {
 		if (document.documentElement)
 			document.documentElement.style.cursor = "wait";
@@ -25507,7 +24424,6 @@ var $$IMU_EXPORT$$;
 	var show_image_infobox = function(text) {
 		var div = document_createElement("div");
 		div.style.backgroundColor = "#fffabb";
-		// apparently this can be white in some cases: https://github.com/qsniyg/maxurl/issues/849#issuecomment-888695580 (thanks to ayunami2000 for reporting)
 		div.style.color = "#000";
 		div.style.position = "absolute";
 		div.style.top = "0px";
@@ -25606,7 +24522,6 @@ var $$IMU_EXPORT$$;
 	};
 	var truncate_with_ellipsis = function(text, maxchars) {
 		var truncate_regex = new RegExp("^((?:.{" + maxchars + "}|.{0," + maxchars + "}[\\r\\n]))[\\s\\S]+?$");
-		// "$1…"
 		return text.replace(truncate_regex, decodeURIComponent("%241%E2%80%A6"));
 	};
 	var size_to_text = function(size) {
@@ -25684,12 +24599,10 @@ var $$IMU_EXPORT$$;
 				if (!settings.mouseover) {
 					mouseover = "disabled";
 				} else if (trigger_behavior === "keyboard") {
-					// todo: maybe _t2 etc. too?
 					mouseover = get_trigger_key_text(settings.mouseover_trigger_key);
 				} else if (trigger_behavior === "mouse") {
 					mouseover = "delay " + settings.mouseover_trigger_delay + "s";
 				}
-				// TODO: another option could be to allow it whenever the image can be imu'd
 				imagetab_ok_override = true;
 				var trigger_options_link = "<a style='color:blue; font-weight:bold' href='" + options_page + "' target='_blank' rel='noreferrer'>" + mouseover + "</a>";
 				var infobox_text = _("Mouseover popup (%%1) is needed to display the original version", trigger_options_link) + " (" + _(reason) + ")";
@@ -25721,10 +24634,7 @@ var $$IMU_EXPORT$$;
 					set_add(specified_headers, header.toLowerCase());
 				}
 				var base_headers = {
-					// Origin is not often added by the browser, and doesn't work for some sites
-					//"origin": url_domain,
 					"referer": page_url,
-					// e.g. for Tumblr URLs, this is sent by the browser when redirecting
 					"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
 					"sec-fetch-dest": "document",
 					"sec-fetch-mode": "navigate",
@@ -25773,7 +24683,6 @@ var $$IMU_EXPORT$$;
 					handled = true;
 					if (_nir_debug_)
 						console_log("(check_image) resp", resp);
-					// FireMonkey returns null when tracking protection blocks a URL
 					if (is_userscript && userscript_manager === "FireMonkey" && !resp) {
 						err_txt = "Error: resp == null (tracking protection blocked, FireMonkey bug)";
 						if (err_cb) {
@@ -25783,14 +24692,10 @@ var $$IMU_EXPORT$$;
 						}
 						return;
 					}
-					// nano defender removes this.DONE
 					if (resp.readyState < 2) {
 						return;
 					}
 					if (is_userscript && !resp.status && resp.readyState < 4) {
-						// Tampermonkey and Greasemonkey have a bug where status isn't set for onprogress events
-						// Tampermonkey issue: https://github.com/Tampermonkey/tampermonkey/issues/857
-						// Greasemonkey issue: https://github.com/greasemonkey/greasemonkey/issues/3068
 						handled = false;
 						return;
 					}
@@ -25800,7 +24705,6 @@ var $$IMU_EXPORT$$;
 					}
 					if (resp.status === 0 ||
 						check_tracking_blocked(resp)) {
-						// error loading image (IP doesn't exist, etc.), ignore
 						err_txt = "Error: status == 0";
 						if (err_cb) {
 							err_cb(err_txt);
@@ -25836,8 +24740,6 @@ var $$IMU_EXPORT$$;
 					if (!content_type)
 						content_type = "";
 					content_type = content_type.toLowerCase();
-					// https://1.f.ix.de/scale/crop/3840x2160/q75/se/ct/motive/image/4291/ct-motiv-07-2019_3840x2160.jpg
-					//   https://www.heise.de/ct/motive/image/4291/ct-motiv-07-2019_3840x2160.jpg -- no content-type header
 					if ((content_type.match(/text\/html/) || !content_type) && !obj.head_wrong_contenttype &&
 						ok_error !== true) {
 						var err_txt = "Error: Not an image: " + (content_type || "(no content-type)");
@@ -25851,7 +24753,6 @@ var $$IMU_EXPORT$$;
 					if (!is_extension || settings.redirect_disable_for_responseheader) {
 						if (obj.forces_download || ((content_type.match(/(?:binary|application|multipart|text)\//) ||
 							content_type === "image/tiff" ||
-							// such as [image/png] (server bug)
 							content_type.match(/^ *\[/)) && !obj.head_wrong_contenttype) ||
 							(headers["content-disposition"] &&
 								headers["content-disposition"].toLowerCase().match(/^ *attachment/))) {
@@ -25883,7 +24784,6 @@ var $$IMU_EXPORT$$;
 					headers: headers,
 					trackingprotection_failsafe: true,
 					onprogress: function(resp) {
-						// 2 = HEADERS_RECEIVED
 						if (resp.readyState >= 2 && resp.responseHeaders) {
 							onload_cb(resp);
 						}
@@ -25902,13 +24802,10 @@ var $$IMU_EXPORT$$;
 		}
 	}
 	function contenttype_can_be_redirected(contentType) {
-		// disable redirecting if redirecting to/from audio/video is disabled
 		if (/^video\//.test(contentType))
 			return !!settings.redirect_video;
 		if (/^audio\//.test(contentType))
 			return !!settings.redirect_audio;
-		// amazonaws's error page are application/xml
-		// fixme: why not search for image/ or video/ instead?
 		return !(/^(?:text|application)\//.test(contentType));
 	}
 	function currenttab_is_image() {
@@ -25967,7 +24864,6 @@ var $$IMU_EXPORT$$;
 			}
 			var new_newhref = [];
 			for (var i = 0; i < newhref.length; i++) {
-				// is_probably_video and is_probably_audio have some overlap, so check them both
 				if (!settings.redirect_video && is_probably_video(newhref[i]) &&
 					!(settings.redirect_audio && is_probably_audio(newhref[i]))) {
 					continue;
@@ -25981,7 +24877,6 @@ var $$IMU_EXPORT$$;
 			var no_infobox = settings.redirect_to_no_infobox;
 			var infobox_urls = [];
 			var use_infobox = false;
-			// TODO: avoid requesting again for second round after no_infobox (e.g. for force_download errors)
 			var index = 0;
 			var cb = function(err_txt, is_infobox) {
 				if (_nir_debug_) {
@@ -26004,7 +24899,6 @@ var $$IMU_EXPORT$$;
 						return;
 					}
 				}
-				// FIXME: deduplicate
 				if (same_url(window.location.href, array[index]) && no_infobox && infobox_urls.length > 0) {
 					use_infobox = true;
 					no_infobox = false;
@@ -26100,8 +24994,6 @@ var $$IMU_EXPORT$$;
 		return /^wheel/.test(keystr);
 	};
 	var keystr_is_button12 = function(keystr) {
-		// allow rebinding right click
-		// todo: maybe add a warning if done globally (e.g. trigger key)?
 		return keystr === "button1"; // || keystr === "button2";
 	};
 	var chord_is_only_wheel = function(chord) {
@@ -26151,7 +25043,6 @@ var $$IMU_EXPORT$$;
 	var request_permission = function(permission, cb) {
 		if (!is_extension)
 			return cb(false);
-		// This has to be done in the content script under firefox: https://github.com/qsniyg/maxurl/issues/254
 		if (true) {
 			try {
 				chrome.permissions.request({
@@ -26203,7 +25094,6 @@ var $$IMU_EXPORT$$;
 			var map = get_keystrs_map(event, value);
 			if ((keycode_to_str(event) || event.type === "mousedown") &&
 				current_options_chord.length === 0) {
-				// Don't clear the options chord for either left or right mouse buttons
 				if (event.button !== 0 && event.button !== 2)
 					options_chord = [];
 			}
@@ -26240,7 +25130,6 @@ var $$IMU_EXPORT$$;
 			update_options_chord(event, true);
 			if (recording_keys) {
 				event.preventDefault();
-				//event.stopImmediatePropagation();
 				return false;
 			}
 		});
@@ -26311,11 +25200,6 @@ var $$IMU_EXPORT$$;
 			saved_el.appendChild(p_el);
 		};
 		set_saved_text(get_default_saved_text());
-		//saved_el.style.pointer_events = "none";
-		//saved_el.style.textAlign = "center";
-		//saved_el.style.paddingTop = "1em";
-		//saved_el.style.fontStyle = "italic";
-		//saved_el.style.color = "#0af";
 		var saved_timeout = null;
 		var create_update_available = function() {
 			var update_available_el = document_createElement("div");
@@ -26541,8 +25425,6 @@ var $$IMU_EXPORT$$;
 						newresult.push(single);
 					}
 				});
-				// add profiled keys, e.g.
-				// [{mouseover_open_behavior: "popup"}] -> [{"mouseover_open_behavior": "popup"}, {"mouseover_open_behavior_t2": "popup"}]
 				result = [];
 				array_foreach(newresult, function(single) {
 					result.push(single);
@@ -26631,11 +25513,9 @@ var $$IMU_EXPORT$$;
 					};
 					var value_is_required = value === required_value;
 					if (!value_is_required && settings_meta[required_setting].type === "keysequence" && required_value === true) {
-						// value can be undefined because value = value[0] above
 						value_is_required = value && !!value.length;
 					}
 					if (enabled_map[required_setting] && value_is_required) {
-						//current_valid = true;
 						if (typeof good_reason !== "undefined") {
 							good_reason.push(current_reason);
 						}
@@ -26716,8 +25596,6 @@ var $$IMU_EXPORT$$;
 						}
 					}
 					var cat_prefix = "";
-					// TODO: don't check label_texts, this doesn't work with tabs. Instead, do proper parsing
-					//var wanted_value_el = document.querySelector("label[for=\"input_" + single_reason.setting + "_" + single_reason.required_value + "\"]");
 					var wanted_value = single_reason.required_value;
 					var input_id = "input_" + single_reason.setting + "_" + single_reason.required_value;
 					if (input_id in label_texts) {
@@ -26739,7 +25617,6 @@ var $$IMU_EXPORT$$;
 			var newels = [];
 			for (var i = 0; i < els.length - 1; i++) {
 				newels.push(els[i]);
-				// FIXME: this should be 'and' for disabled_if
 				var or_p = document_createElement("p");
 				or_p.innerText = _("Or:");
 				newels.push(or_p);
@@ -26794,7 +25671,6 @@ var $$IMU_EXPORT$$;
 						input.disabled = true;
 					}
 					var requirements_div = options[i].getElementsByClassName("requirements")[0];
-					//requirements_div.style.display = "block";
 					requirements_div.classList.remove("hidden");
 					fill_requirements(reason_map[setting], requirements_div);
 				}
@@ -26845,7 +25721,6 @@ var $$IMU_EXPORT$$;
 				current_text = "";
 				parent.appendChild(current_el);
 			};
-			// fast path
 			if (string_indexof(text, "`") < 0 && string_indexof(text, "\n") < 0) {
 				current_text = text;
 				apply_tag();
@@ -26892,7 +25767,6 @@ var $$IMU_EXPORT$$;
 				div.classList.add("tabbed");
 				var tab = document_createElement("span");
 				tab.classList.add("tab");
-				//tab.href = "#cat_" + category;
 				tab.id = "tab_cat_" + category;
 				tab.innerText = catname;
 				(function(category) {
@@ -26989,7 +25863,6 @@ var $$IMU_EXPORT$$;
 			name_td.classList.add("name_td");
 			name_td.classList.add("name_td_va_middle");
 			var revert_btn = document.createElement("button");
-			// \u2b8c = ⮌
 			revert_btn.innerText = "\u2b8c";
 			revert_btn.classList.add("revert-button");
 			revert_btn.title = _("Revert");
@@ -27055,7 +25928,6 @@ var $$IMU_EXPORT$$;
 				if (meta.options._randomize) {
 					var keys = Object.keys(meta.options);
 					var new_options = {};
-					// prepend options that do need to be properly sorted
 					for (var option_name in meta.options) {
 						if (option_name[0] == "_" || meta.options[option_name].is_null) {
 							new_options[option_name] = meta.options[option_name];
@@ -27185,7 +26057,6 @@ var $$IMU_EXPORT$$;
 						} else {
 							do_update_setting(setting, value, meta);
 						}
-						//settings[setting] = new_value;
 						check_disabled_options();
 						show_warnings();
 					});
@@ -27227,12 +26098,9 @@ var $$IMU_EXPORT$$;
 				var sub_tr = document_createElement("tr");
 				var sub_ta_td = document_createElement("td");
 				sub_ta_td.style.verticalAlign = "middle";
-				//sub_ta_td.style.height = "1px";
 				var sub_button_tr = document_createElement("tr");
 				var sub_button_td = document_createElement("td");
 				sub_button_td.style.textAlign = "center";
-				//sub_button_td.style.verticalAlign = "middle";
-				//sub_button_td.style.height = "1px";
 				var textarea = document_createElement("textarea");
 				textarea.style.height = "5em";
 				textarea.style.width = "20em";
@@ -27242,9 +26110,7 @@ var $$IMU_EXPORT$$;
 				savebutton.innerText = _("save");
 				savebutton.onclick = function() {
 					do_update_setting(setting, textarea.value, meta);
-					// Background CSS style unlocks Background fade
 					check_disabled_options();
-					//settings[setting] = textarea.value;
 				};
 				sub_ta_td.appendChild(textarea);
 				sub_button_td.appendChild(savebutton);
@@ -27260,8 +26126,6 @@ var $$IMU_EXPORT$$;
 				sub_in_td.style = "display:inline";
 				var input = document_createElement("input");
 				if (false && type === "number") {
-					// doesn't work properly on Waterfox, most of the functionality is implemented here anyways
-					// thanks to decembre on github for reporting: https://github.com/qsniyg/maxurl/issues/14#issuecomment-531080061
 					input.type = "number";
 				} else {
 					input.type = "text";
@@ -27316,7 +26180,6 @@ var $$IMU_EXPORT$$;
 						do_update_setting(setting, value, meta);
 				};
 				var sub_units_td = document_createElement("td");
-				//sub_units_td.style = "display:inline";
 				sub_units_td.classList.add("number_units");
 				if (meta.number_unit)
 					sub_units_td.innerText = _(meta.number_unit);
@@ -27369,7 +26232,6 @@ var $$IMU_EXPORT$$;
 					var sub_tr = document_createElement("tr");
 					sub_tr.classList.add("keyseq");
 					var sub_key_td = document_createElement("td");
-					//sub_key_td.style = "display:inline;font-family:monospace";
 					sub_key_td.classList.add("record_keybinding");
 					if (value) {
 						sub_key_td.innerText = get_trigger_key_texts(values)[index];
@@ -27383,8 +26245,6 @@ var $$IMU_EXPORT$$;
 							if (keysequence_valid(options_chord)) {
 								values[index] = options_chord;
 								update_keyseq_setting();
-								//do_update_setting(setting, options_chord, meta);
-								//settings[setting] = options_chord;
 								do_cancel();
 							}
 						} else {
@@ -27418,7 +26278,6 @@ var $$IMU_EXPORT$$;
 					};
 					sub_cancel_btn.onmousedown = do_cancel;
 					var sub_remove_btn = document_createElement("button");
-					//sub_remove_btn.innerText = "—";
 					sub_remove_btn.innerText = "\xD7";
 					sub_remove_btn.title = _("Remove");
 					sub_remove_btn.classList.add("removebtn");
@@ -27518,7 +26377,6 @@ var $$IMU_EXPORT$$;
 			if (description && settings.settings_visible_description) {
 				var description_el = document_createElement("p");
 				md_to_html(description_el, description);
-				//description_el.innerText = description;
 				description_el.classList.add("description");
 				option.appendChild(description_el);
 			}
@@ -27529,7 +26387,6 @@ var $$IMU_EXPORT$$;
 				option.appendChild(warning);
 			}
 			var requirements = document_createElement("div");
-			//requirements.style.display = "none";
 			requirements.classList.add("requirements");
 			requirements.classList.add("hidden");
 			option.appendChild(requirements);
@@ -27546,10 +26403,8 @@ var $$IMU_EXPORT$$;
 			}
 			if (meta.documentation) {
 				var get_title = function(expanded) {
-					// ⯈
 					var arrow = "%E2%AF%88";
 					if (expanded) {
-						// ⯆
 						arrow = "%E2%AF%86";
 					}
 					return decodeURIComponent(arrow) + " " + _(meta.documentation.title);
@@ -27632,8 +26487,6 @@ var $$IMU_EXPORT$$;
 	}
 	function parse_value(value) {
 		try {
-			// undefined (void 0), "true" and "false" are the most common ones, let's avoid calling JSON_parse unless necessary
-			// this improves performance
 			if (value === void 0) {
 				return value;
 			} else if (value === "true") {
@@ -27662,9 +26515,6 @@ var $$IMU_EXPORT$$;
 				cb(response);
 			});
 		} else if (typeof GM_getValue !== "undefined" &&
-			// Unfortunately FireMonkey currently implements GM_getValue as a mapping to GM.getValue for some reason
-			//   https://github.com/erosman/support/issues/98
-			// Until this is fixed, we cannot use GM_getValue for FireMonkey
 			userscript_manager !== "FireMonkey") {
 			var response = {};
 			array_foreach(keys, function(key) {
@@ -27702,11 +26552,9 @@ var $$IMU_EXPORT$$;
 			settings_meta[key].onedit(value);
 		}
 		value = serialize_value(value);
-		//console_log("Setting " + key + " = " + value);
 		if (is_extension) {
 			var kv = {};
 			kv[key] = value;
-			//chrome.storage.sync.set(kv, function() {});
 			updating_options++;
 			extension_send_message({
 				type: "setvalue",
@@ -27747,12 +26595,10 @@ var $$IMU_EXPORT$$;
 	function settings_updated_cb(changes) {
 		if (!settings.allow_live_settings_reload)
 			return;
-		//console_log(message);
 		var changed = false;
 		for (var key in changes) {
 			if (changes[key].newValue === void 0)
 				continue;
-			//console_log("Setting " + key + " = " + changes[key].newValue);
 			var newvalue = JSON_parse(changes[key].newValue);
 			if (key in settings_history) {
 				var index = array_indexof(settings_history[key], newvalue);
@@ -27771,7 +26617,6 @@ var $$IMU_EXPORT$$;
 			}
 		}
 		if (changed && updating_options <= 0 && is_options_page) {
-			//console_log("Refreshing options");
 			do_options();
 		}
 	}
@@ -27942,7 +26787,6 @@ var $$IMU_EXPORT$$;
 			update_setting("last_update_check", Date.now());
 		}
 		check_updates_if_needed();
-		// TODO: merge this get_value in do_config for performance
 		get_value("settings_version", function(version) {
 			upgrade_settings_with_version(version, settings, cb);
 		});
@@ -27971,8 +26815,6 @@ var $$IMU_EXPORT$$;
 				if (typeof GM_addValueChangeListener === "undefined") {
 					return cb();
 				}
-				// run in timeout to prevent this from further delaying initial page load times
-				// takes ~2-3ms. not huge, but still significant
 				setTimeout(function() {
 					for (var setting in settings) {
 						GM_addValueChangeListener(setting, function(name, oldValue, newValue, remote) {
@@ -27988,7 +26830,6 @@ var $$IMU_EXPORT$$;
 			};
 			var process_settings = function(settings) {
 				get_values(settings, function(values) {
-					// not Object.keys(values).length, because it may be smaller
 					settings_done += settings.length;
 					obj_foreach(values, function(key, value) {
 						update_setting_from_host(key, value);
@@ -28010,7 +26851,6 @@ var $$IMU_EXPORT$$;
 	}
 	var can_use_subzindex = true;
 	try {
-		// uBlock Origin: div > div[style*="z-index:"]
 		if (/^[a-z]+:\/\/[^/]*txxx\.com\//.test(window.location.href)) {
 			can_use_subzindex = false;
 		}
@@ -28019,10 +26859,7 @@ var $$IMU_EXPORT$$;
 		if (can_use_subzindex) {
 			el.style.all = "initial";
 		} // removing zIndex doesn't work if all = "initial";
-		// Under Waterfox, if offsetInlineStart is set to anything (even unset), it'll set the left to 0
-		// Thanks to decembre on github for reporting this: https://github.com/qsniyg/maxurl/issues/14#issuecomment-531080061
 		el.style.removeProperty("offset-inline-start");
-		// https://developer.chrome.com/en/blog/tablesng/ breaks without this with reduced-motion, thanks to Noodlers for reporting
 		el.style.setProperty("transition-duration", "0s", "important");
 	}
 	function check_bad_if(badif, resp) {
@@ -28068,7 +26905,6 @@ var $$IMU_EXPORT$$;
 	bigimage_recursive.check_bad_if = check_bad_if;
 	var mediadelivery_support = {};
 	var is_probably_video = function(obj) {
-		//console_log(obj);
 		if (obj.media_info.type === "video")
 			return true;
 		if (/\.(?:mp4|webm|mkv|mpg|ogv|wmv|m3u8|mpd)(?:[?#].*)?$/i.test(obj.url))
@@ -28076,7 +26912,6 @@ var $$IMU_EXPORT$$;
 		return false;
 	};
 	var is_probably_audio = function(obj) {
-		//console_log(obj);
 		if (obj.media_info.type === "audio")
 			return true;
 		if (/\.(?:mp3|m4a|oga|mkv|wma|mp4|ogg)(?:[?#].*)?$/i.test(obj.url))
@@ -28147,7 +26982,6 @@ var $$IMU_EXPORT$$;
 		return false;
 	};
 	function get_event_error(e) {
-		// https://stackoverflow.com/a/46064096
 		var error = e;
 		if (e.path && e.path[0]) {
 			error = e.path[0].error;
@@ -28173,7 +27007,6 @@ var $$IMU_EXPORT$$;
 				data.method = "GET";
 			}
 		}
-		//console_log(data);
 		return data;
 	};
 	var set_common_el_properties = function(el, obj) {
@@ -28276,7 +27109,6 @@ var $$IMU_EXPORT$$;
 	var destroy_image = function(image) {
 		if (_nir_debug_)
 			console_log("destroy_image", image);
-		// TODO: maybe check to make sure it's a blob? according to the spec, this will silently fail, but browsers may print an error
 		revoke_objecturl(image.src);
 		image.setAttribute("imu-destroyed", "true");
 	};
@@ -28331,7 +27163,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (settings.mouseover_video_resume_from_source && source_video && source_video.currentTime) {
-				// https://github.com/qsniyg/maxurl/issues/256
 				if (settings.mouseover_video_resume_if_different ||
 					Math_abs(source_video.duration - video.duration) < 1 || Math_abs(1 - (source_video.duration / video.duration)) < 0.01) {
 					video.currentTime = source_video.currentTime;
@@ -28420,7 +27251,6 @@ var $$IMU_EXPORT$$;
 			return null;
 		}
 	};
-	// TODO: maybe move to a generic reference class, like Cache?
 	var check_image_refs = new_map();
 	var check_image_ref = function(image) {
 		if (map_has(check_image_refs, image)) {
@@ -28474,14 +27304,10 @@ var $$IMU_EXPORT$$;
 				});
 			}
 		}
-		// this happens for waiting: true images, such as private Flickr images (thanks to fireattack for reporting)
-		// FIXME: a better fix would be to always fillobj, including for waiting: true
 		if (!obj[0].media_info) {
 			console_warn("No media info", obj[0]);
 			obj[0].media_info = deepcopy(default_object.media_info);
-			//return err_cb();
 		}
-		// do this before cache, in case settings change
 		if (!is_media_type_supported(obj[0].media_info, processing)) {
 			console_warn("Media type", obj[0].media_info, "is not supported");
 			return err_cb();
@@ -28550,7 +27376,6 @@ var $$IMU_EXPORT$$;
 			if (no_propagate) {
 				return final_cb.apply(our_this, args);
 			}
-			//console_log("Running cbs for", our_this, args, cb_key);
 			var cbs = check_image_cbs[cb_key];
 			if (!cbs) {
 				console_error("Already ran cbs?", our_this, args, cb_key);
@@ -28564,7 +27389,6 @@ var $$IMU_EXPORT$$;
 		var final_cb = cb;
 		var url = obj[0].url;
 		console_log("Trying " + url);
-		// commenting out because allow_video is no longer in settings
 		/*if (false) {
 			var video_allowed = settings.allow_video && !processing.deny_video;
 
@@ -28598,11 +27422,9 @@ var $$IMU_EXPORT$$;
 			if (!/^https?:\/\//.test(referer_host)) // e.g. file://
 				referer_host = "";
 			headers = {
-				//"Origin": url_domain,
 				"Referer": referer_host
 			};
 		} else if (!headers.Origin && !headers.origin) {
-			//headers.Origin = url_domain;
 		}
 		var handled = false;
 		var onload_cb = function(resp) {
@@ -28638,7 +27460,6 @@ var $$IMU_EXPORT$$;
 			}
 			var parsed_headers = headers_list_to_dict(parse_headers(resp.responseHeaders));
 			var media_info = obj[0].media_info;
-			// TODO: improve
 			if (media_info.type === "image" && parsed_headers["content-type"]) {
 				var detected_mediainfo = get_mediainfo_from_contenttype(parsed_headers["content-type"]);
 				if (detected_mediainfo) {
@@ -28648,7 +27469,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (false) {
-				// commenting out because video_allowed doesn't exist
 				/*if (media_info.type === "video" && !video_allowed) {
 					console_log("Video, skipping due to user setting");
 					return err_cb();
@@ -28707,7 +27527,6 @@ var $$IMU_EXPORT$$;
 			};
 			var create_media = function(src, mediatype) {
 				var our_err_cb = err_cb;
-				// https://github.com/qsniyg/maxurl/issues/672
 				if (!mediatype && obj[0].head_wrong_contenttype && media_info.type !== "audio") {
 					our_err_cb = function() {
 						var all_mediatypes = ["video", "image"];
@@ -28758,7 +27577,6 @@ var $$IMU_EXPORT$$;
 			return;
 		}
 		var cb_key = method + " " + incomplete_request + " " + url;
-		//console_log(cb_key);
 		err_cb = function(no_propagate) {
 			run_cbs(null, null, no_propagate);
 		};
@@ -28773,7 +27591,6 @@ var $$IMU_EXPORT$$;
 			}
 			return cb.apply(our_this, args);
 		});
-		// avoid multiple requests to the same image at the same time (e.g. for replace images)
 		if (check_image_cbs[cb_key].length > 1)
 			return;
 		var start_req = function() {
@@ -28834,7 +27651,6 @@ var $$IMU_EXPORT$$;
 		up: 38,
 		right: 39,
 		down: 40,
-		//"super": 91,
 		";": 186,
 		"=": 187,
 		",": 188,
@@ -28861,8 +27677,6 @@ var $$IMU_EXPORT$$;
 		39: "right",
 		40: "down",
 		44: "prntscreen",
-		//91: "super",
-		// numpad
 		97: "1",
 		98: "2",
 		99: "3",
@@ -28891,13 +27705,8 @@ var $$IMU_EXPORT$$;
 		222: "'",
 		226: "\\" // IntlBackslash, VK_OEM_102 (thanks to Noodlers for reporting)
 	};
-	//var maxzindex = 2147483647;
-	// some sites have z-index: 99999999999999 (http://www.topstarnews.net/)
-	// this gets scaled down to 2147483647 in the elements panel, but it gets seen as higher than 9999* by the browser
-	// Number.MAX_VALUE doesn't work at all (z-index doesn't get set)
 	var MAX_SAFE_INTEGER = 9007199254740991; // Number.MAX_SAFE_INTEGER
 	var maxzindex = MAX_SAFE_INTEGER;
-	// sites like topstarnews under Firefox somehow change sans-serif as the default font
 	var sans_serif_font = '"Noto Sans", Arial, Helvetica, sans-serif';
 	var get_safe_glyph = function(font, glyphs) {
 		if (settings.mouseover_ui_use_safe_glyphs)
@@ -28915,7 +27724,6 @@ var $$IMU_EXPORT$$;
 	function keycode_to_str(event) {
 		var x = event.which;
 		if (event.code) {
-			// when pressing Shift
 			var match = event.code.match(/^Numpad([0-9]+)$/);
 			if (match) {
 				return match[1];
@@ -28926,7 +27734,6 @@ var $$IMU_EXPORT$$;
 			return keycode_to_str_table[x];
 		}
 		if (!((x >= 65 && x <= 90) ||
-			// numbers
 			(x >= 48 && x <= 57))) {
 			return;
 		}
@@ -28950,12 +27757,10 @@ var $$IMU_EXPORT$$;
 			console_log("general_extension_message_handler", message);
 		}
 		if (message.type === "settings_update") {
-			//console_log(message);
 			settings_updated_cb(message.data.changes);
 		} else if (message.type === "request") {
 			var response = message.data;
 			if (!(response.id in extension_requests)) {
-				// this happens when there's more than one frame per tab
 				if (_nir_debug_) {
 					console_log("Request ID " + response.id + " not in extension_requests");
 				}
@@ -29010,7 +27815,6 @@ var $$IMU_EXPORT$$;
 							response.data.response = value_array.buffer;
 						}
 					} else if (enc.objurl) {
-						// based on https://stackoverflow.com/a/23856573/13255485
 						var xhr = new XMLHttpRequest();
 						xhr.open("GET", enc.objurl);
 						xhr.responseType = wanted_responseType;
@@ -29161,14 +27965,11 @@ var $$IMU_EXPORT$$;
 		var host_domain = get_domain_from_url(host_location);
 		var host_domain_nosub = get_domain_nosub(host_domain);
 		function resetifout(e) {
-			// doesn't work, as e doesn't contain ctrlKey etc.
 			if (!trigger_complete(settings.mouseover_trigger_key)) {
-				//current_chord = [];
 				stop_waiting();
 				resetpopups();
 			}
 		}
-		// runs on every focusout, not just window
 		/*document.addEventListener("focusout", resetifout);
 		  document.addEventListener("blur", resetifout);
 		  unsafeWindow.addEventListener("focusout", resetifout);
@@ -29180,7 +27981,6 @@ var $$IMU_EXPORT$$;
 					e.stopPropagation();
 					e.stopImmediatePropagation();
 					return true;
-					//return false;
 				}
 			}, true);
 		}
@@ -29232,7 +28032,6 @@ var $$IMU_EXPORT$$;
 				waitingel.style.cursor = cursor;
 				waitingel.style.width = waitingsize + "px";
 				waitingel.style.height = waitingsize + "px";
-				//waitingel.style.pointerEvents = "none"; // works, but defeats the purpose, because the cursor isn't changed
 				waitingel.style.position = "fixed"; //"absolute";
 				var simevent = function(e, eventtype) {
 					waitingel.style.display = "none";
@@ -29268,7 +28067,6 @@ var $$IMU_EXPORT$$;
 			if (waitingel)
 				waitingel.style.display = "none";
 		};
-		// camhub.cc (ublock origin blocks any setTimeout'd function with 'stop' in the name)
 		function dont_wait_anymore() {
 			stop_waiting();
 		}
@@ -29374,7 +28172,6 @@ var $$IMU_EXPORT$$;
 						removepopups_timer = setTimeout(removepopups, settings.mouseover_fade_time);
 					}
 				} else {
-					// FIXME: this is called for each popup
 					removepopups();
 				}
 			});
@@ -29429,7 +28226,6 @@ var $$IMU_EXPORT$$;
 			}
 			stop_processing();
 			if (!options.new_popup || settings.mouseover_wait_use_el) {
-				// don't recalculate style until after the popup is open
 				stop_waiting();
 			}
 			if (!delay_mouseonly && delay_handle) {
@@ -29478,7 +28274,6 @@ var $$IMU_EXPORT$$;
 					return cb(parsed);
 				});
 			};
-			// todo: cache, because it's possible more than one has the same url?
 			var request_parsed_stream = function(info_obj, manifest_url, cb) {
 				var requestobj = override_request({
 					url: manifest_url,
@@ -29494,8 +28289,6 @@ var $$IMU_EXPORT$$;
 				}, info_obj);
 				do_request(requestobj);
 			};
-			// prefers bandwidth over resolution
-			// fixme: is this even correct? this might choose inefficient formats over more efficient ones
 			var sort_playlists = function(playlists) {
 				return playlists.sort(function(a_obj, b_obj) {
 					var a = a_obj.attributes;
@@ -29508,7 +28301,6 @@ var $$IMU_EXPORT$$;
 						var b_res = b.RESOLUTION.width * b.RESOLUTION.height;
 						return b_res - a_res;
 					}
-					// todo: FRAME-RATE?
 					return 0;
 				});
 			};
@@ -29523,14 +28315,11 @@ var $$IMU_EXPORT$$;
 					if (playlist.uri) {
 						playlist.uri = resolve_uri(playlist.uri);
 						var uri = playlist.uri;
-						//console_log("Requesting", playlist.uri);
 						request_parsed_stream(info_obj, uri, function(data) {
 							if (!data)
 								return cb(null);
 							var origattrs = playlist.attributes;
-							// should return just a playlist (not a manifest) object for m3u8
 							obj_extend(playlist, data);
-							// fixme: is this necessary?
 							if (origattrs)
 								playlist.attributes = origattrs;
 							playlist.base_uri = uri;
@@ -29560,7 +28349,6 @@ var $$IMU_EXPORT$$;
 					var audio = playlist.attributes.AUDIO;
 					if (audio && audio in manifest.mediaGroups.AUDIO) {
 						audio = manifest.mediaGroups.AUDIO[audio];
-						// todo: somehow add an option to select this
 						audio = audio[Object.keys(audio)[0]];
 					} else {
 						audio = null;
@@ -29582,9 +28370,7 @@ var $$IMU_EXPORT$$;
 				var resolve_uri = function(uri) {
 					return urljoin(playlist.base_uri || info_obj.url, uri, true);
 				};
-				// todo
 				if (false && playlist.attributes) {
-					// dailymotion
 					var progressive = playlist.attributes["PROGRESSIVE-URI"];
 					if (progressive)
 						return [resolve_uri(progressive)];
@@ -29598,12 +28384,10 @@ var $$IMU_EXPORT$$;
 				};
 				var push_segment = function(segment) {
 					if (segment.map) {
-						// only resolvedUri is present for youtube urls
 						push_url(segment.map.uri || segment.map.resolvedUri);
 					}
 					push_url(segment.uri || segment.resolvedUri);
 				};
-				// youtube
 				if (playlist.sidx) {
 					push_segment(playlist.sidx);
 				}
@@ -29624,9 +28408,7 @@ var $$IMU_EXPORT$$;
 					get_downloadable_playlists(info_obj, manifest, function(playlists) {
 						if (!playlists)
 							return cb(null);
-						//console_log("playlists", playlists);
 						var urls = get_download_urls_from_playlists(info_obj, playlists);
-						//console_log("urls", urls);
 						return cb(urls);
 					});
 				});
@@ -29664,7 +28446,6 @@ var $$IMU_EXPORT$$;
 					return cb(false);
 				}
 			};
-			// todo: timeout?
 			var cached_sab_success = null;
 			check_sharedarraybuffer = function(cb) {
 				if (cached_sab_success !== null)
@@ -29686,23 +28467,16 @@ var $$IMU_EXPORT$$;
 				if (!ffmpeg_lib._imu_instance) {
 					if (ffmpeg_lib.overridden_xhr) {
 						ffmpeg_lib.xhr.do_request = function(req) {
-							//console_log("overriding", req);
 							req = override_request(req, {
 								headers: {
 									Referer: "",
 									Origin: ""
 								}
 							});
-							//console_log("requesting", req.url);
-							// no need to query this as it's been patched in
 							if (/\/ffmpeg-core(?:\.worker)?\.js$/.test(req.url)) {
 								req.url = "data:application/javascript,void%200";
 							} else if (false && /\/ffmpeg-core\.wasm$/.test(req.url)) {
-								//console.trace();
 								req.responseType = "blob";
-								// somehow helps avoid cache misses
-								// no, it seems to work fine without, this also sets Accept-Encoding: identity, which more than doubles the size
-								//req.headers = { Range: "bytes=0-" };
 								if (true) {
 									return do_request(req);
 								}
@@ -29726,7 +28500,6 @@ var $$IMU_EXPORT$$;
 					ffmpeg = ffmpeg_lib.lib.createFFmpeg({
 						log: true,
 						progress: function(progress) {
-							//console_log(progress.ratio);
 							if (ffmpeg_progress_cb) {
 								ffmpeg_progress_cb(progress.ratio);
 							}
@@ -29741,7 +28514,6 @@ var $$IMU_EXPORT$$;
 						cb(ffmpeg);
 					}, function(err) {
 						console_error(err);
-						// since compilation takes 100% cpu for a few seconds, we really don't want to run it more than once if it continually fails
 						ffmpeg_lib._imu_failed_loading = true; // untested
 						cb(null);
 					});
@@ -29756,7 +28528,6 @@ var $$IMU_EXPORT$$;
 				return cb(null);
 			}
 			check_sharedarraybuffer(function(success) {
-				// if we don't check for this, ffmpeg will hang under firefox
 				if (!success) {
 					console_error("Unable to load FFmpeg library: SharedArrayBuffer is missing or unusable");
 					return cb(null);
@@ -29817,11 +28588,9 @@ var $$IMU_EXPORT$$;
 					return;
 				ffmpeg_run_single(ffmpeg);
 			};
-			// prefix in case multiple ops are running
 			var get_ffmpeg_prefix = function(prefix) {
 				return prefix + "_" + get_random_text(10) + "_";
 			};
-			// files = array of {data: uint8array, mime: ...}, not filenames
 			var ffmpeg_concat = function(ffmpeg, files, cb) {
 				if (true) {
 					var total_size = 0;
@@ -29845,7 +28614,6 @@ var $$IMU_EXPORT$$;
 					var files_txt_files = [];
 					var filenames = [];
 					array_foreach(files, function(file, i) {
-						// todo: file extensions? are they even necessary?
 						var filename = prefix + i;
 						if (file.mime) {
 							filename += file.mime.replace(/.*\//, ".");
@@ -29863,7 +28631,6 @@ var $$IMU_EXPORT$$;
 						ffmpeg.FS("unlink", files_txt_filename);
 						if (out) {
 							try {
-								// this can fail if ffmpeg failed to create the out file entirely
 								ffmpeg.FS("unlink", out_filename);
 							} catch (e) { }
 						}
@@ -29885,7 +28652,6 @@ var $$IMU_EXPORT$$;
 						return null;
 					return stat.size;
 				} catch (e) {
-					//console_error(e);
 					return null;
 				}
 				;
@@ -29904,7 +28670,6 @@ var $$IMU_EXPORT$$;
 					args.push("-i", audio_file);
 				args.push("-c", "copy", out_filename);
 				ffmpeg_run(ffmpeg, args, progress, function(data) {
-					// it'll always succeed, so this is needed to check if it actually wrote the file
 					if (!ffmpeg_fs_size(ffmpeg, out_filename)) {
 						return failfunc();
 					}
@@ -29928,11 +28693,9 @@ var $$IMU_EXPORT$$;
 							ratio = 0.95; // hack to avoid removing the progress element on error
 						progress(ratio);
 					}, function() { cb(mp4_filename); }, function(err) {
-						// this means ffmpeg can't be run
 						if (err === false) {
 							return cb(null);
 						}
-						//if (err) console_error(err);
 						mux_final();
 					});
 				} else {
@@ -29967,17 +28730,14 @@ var $$IMU_EXPORT$$;
 					}
 					var stream = streams[i];
 					if (!stream.length) {
-						// shouldn't happen?
 						console_warn("No stream data for", i);
 						process_stream(i + 1);
 					} else if (stream.length === 1) {
-						// no need to concat
 						var filename = prefix + "stream" + i;
 						ffmpeg.FS("writeFile", filename, stream[0].data);
 						files.push(filename);
 						process_stream(i + 1);
 					} else {
-						// todo: progress
 						ffmpeg_concat(ffmpeg, stream, function(filename) {
 							if (!filename)
 								return err();
@@ -29992,9 +28752,7 @@ var $$IMU_EXPORT$$;
 						console_warn("No files");
 						return err();
 					}
-					// disabling this is inefficient, but otherwise we don't get a file extension
 					if (false && files.length === 1) {
-						// don't cleanup because it'll delete the file
 						return cb(files[0]);
 					}
 					if (files.length > 2) {
@@ -30016,8 +28774,6 @@ var $$IMU_EXPORT$$;
 		var download_playlist_urls;
 		(function() {
 			var download_single_urls = function(info_obj, single_urls, progress, cb) {
-				// for testing
-				//single_urls = single_urls.slice(0, 2);
 				var ip = new ImpreciseProgress({
 					elements_num: single_urls.length,
 					cb: progress
@@ -30036,7 +28792,6 @@ var $$IMU_EXPORT$$;
 				var do_stop = false;
 				var request_url = function(url, cb) {
 					running++;
-					//console_log("requesting", url);
 					request_chunked({
 						url: url,
 						headers: info_obj.headers,
@@ -30047,7 +28802,6 @@ var $$IMU_EXPORT$$;
 						chunk_size: chunk_size,
 						onload: function(data) {
 							running--;
-							//console_log("got", url, data);
 							if (!data)
 								cb(false);
 							urls_data[url] = data;
@@ -30059,7 +28813,6 @@ var $$IMU_EXPORT$$;
 					});
 				};
 				var stop = function() {
-					// todo: abort requests
 					do_stop = true;
 				};
 				var run = function() {
@@ -30118,7 +28871,6 @@ var $$IMU_EXPORT$$;
 							return cb(null);
 						}
 						final_data[type] = urls_data;
-						// todo: improve check?
 						if (Object.keys(final_data).length === Object.keys(urls).length) {
 							cb(final_data);
 						}
@@ -30169,7 +28921,6 @@ var $$IMU_EXPORT$$;
 					} else {
 						shaka.log.setLevel(shaka.log.Level.DEBUG);
 					}
-					//shaka.polyfill.installAll();
 					if (!shaka.Player.isBrowserSupported()) {
 						console_warn("Unsupported browser for Shaka");
 						return fail();
@@ -30204,7 +28955,6 @@ var $$IMU_EXPORT$$;
 							variants.sort(function(a, b) {
 								return b.bandwidth - a.bandwidth;
 							});
-							//console_log(variants);
 							player.configure("abr.enabled", false);
 							player.selectVariantTrack(variants[0], true, 0);
 						}
@@ -30251,8 +29001,6 @@ var $$IMU_EXPORT$$;
 				var current = strip_whitespace(splitted[i]);
 				if (!current)
 					continue;
-				// note: c/css multiline comments (/* */) aren't supported yet
-				// c++-style comments
 				if (/^\/\//.test(current))
 					continue;
 				var match = current.match(/^(#[-a-zA-Z0-9]+(?:\s*,\s*#[-a-zA-Z0-9]+){0,})\s*{/);
@@ -30282,8 +29030,6 @@ var $$IMU_EXPORT$$;
 				}
 				var property = strip_whitespace(current.replace(/^(.*?)\s*:.*/, "$1"));
 				var value = strip_whitespace(current.replace(/^.*?:\s*(.*)$/, "$1"));
-				// FIXME: this is extremely hacky in order to avoid writing a better parser
-				// doesn't support escapes like \"
 				var scolon_pos = string_indexof(value, ";");
 				if (scolon_pos >= 0) {
 					var quote_pos = value.search(/['"]/);
@@ -30349,7 +29095,6 @@ var $$IMU_EXPORT$$;
 			return styles;
 		}
 		function get_styletag_styles(str) {
-			// TODO: use parse_styles instead
 			var styles = get_processed_styles(str);
 			if (!styles)
 				return;
@@ -30367,7 +29112,6 @@ var $$IMU_EXPORT$$;
 			var style_blocks = parse_styles(str, true);
 			if (!style_blocks)
 				return;
-			// currently unused because revert_styles isn't used anywhere
 			if (options.allow_revert) {
 				var oldstyle = el.getAttribute("style"); // this can be expensive for `all: initial` styles
 				if (oldstyle) {
@@ -30385,11 +29129,9 @@ var $$IMU_EXPORT$$;
 					array_extend(styles[property], block[property]);
 				}
 			}
-			// avoid modifying the source object if format_string adds new variables
 			var format_vars = shallowcopy(options.format_vars);
 			var iter = function(property, obj) {
 				var value = obj.value;
-				// todo: maybe handle escape sequences with JSON_parse?
 				if (value.match(/^['"].*['"]$/)) {
 					value = value.replace(/^["'](.*)["']$/, "$1");
 				}
@@ -30441,12 +29183,10 @@ var $$IMU_EXPORT$$;
 			}
 			if (el) {
 				do {
-					// don't use el.title/el.alt because if the element is <form>, it refers to form > input[name="title"]
 					var el_title = el.getAttribute("title");
 					var el_alt = el.getAttribute("alt");
 					if (el_title || el_alt) {
 						var caption = el_title || el_alt;
-						// When opening an image in a new tab in Firefox, alt is set to the src
 						if (caption === el.src)
 							return null;
 						return strip_whitespace(caption);
@@ -30479,7 +29219,6 @@ var $$IMU_EXPORT$$;
 				];
 			} else { // e.g. <audio>
 				return [
-					// .style. is a hack in order to get the dimensions before the element is created
 					el.offsetWidth || getUnit(el.style.width),
 					el.offsetHeight || getUnit(el.style.height)
 				];
@@ -30495,7 +29234,6 @@ var $$IMU_EXPORT$$;
 				});
 			}
 		}
-		// {}-based
 		var parse_format = function(formatstr) {
 			var segments = [];
 			var push_segment = function() {
@@ -30544,7 +29282,6 @@ var $$IMU_EXPORT$$;
 			return segments;
 		};
 		var format_string_single = function(formatstr, vars) {
-			// don't need to care about anything after // because / shouldn't be in the filename anyways
 			formatstr = formatstr.replace(/\/\/.*/, "");
 			formatstr = strip_whitespace(formatstr);
 			if (!formatstr)
@@ -30599,7 +29336,6 @@ var $$IMU_EXPORT$$;
 							var newvalue = varvalue.substr(0, parseInt(match[2]));
 							if (match[3]) {
 								if (newvalue !== varvalue) {
-									// …
 									newvalue += "\u2026";
 								}
 							}
@@ -30633,7 +29369,6 @@ var $$IMU_EXPORT$$;
 								}
 							}
 						}
-						// not in the usevar block because it may not exist
 						if (op === "set") {
 							vars[varname] = compare_value;
 							usevar = true;
@@ -30652,7 +29387,6 @@ var $$IMU_EXPORT$$;
 					str += varvalue;
 				}
 			}
-			// if it's a {x==y}{var:=value} rule, this should return a falsey value
 			return strip_whitespace(str);
 		};
 		var pluralify = function(number, forms) {
@@ -30665,15 +29399,12 @@ var $$IMU_EXPORT$$;
 		var format_ago = function(delta, max_units) {
 			if (!max_units)
 				max_units = 2;
-			// we don't care about milliseconds
 			delta = (delta / 1000) | 0;
-			// fixme: this isn't really accurate due to averages
 			var units = {
 				seconds: delta % 60,
 				minutes: ((delta / 60) | 0) % 60,
 				hours: ((delta / 60 / 60) | 0) % 24,
 				days: ((delta / 60 / 60 / 24) | 0),
-				//weeks: ((delta / 60 / 60 / 24 / 7)|0), // is this really needed?
 				months: ((delta / 60 / 60 / 24 / 30.4375) | 0),
 				years: ((delta / 60 / 60 / 24 / 365.25) | 0) // (365 * 3 + 366) / 4
 			};
@@ -30706,7 +29437,6 @@ var $$IMU_EXPORT$$;
 					}
 				}
 				if (!value) {
-					// "1 year and 1 day ago" is interesting, but hardly useful. makes the leap year average problem more noticeable
 					if (valid_units.length)
 						return false;
 					return;
@@ -30724,7 +29454,6 @@ var $$IMU_EXPORT$$;
 				var proper_name = pluralify(value, [unit_name, unit_name + "s"]);
 				formatted_units.push(value + " " + proper_name);
 			});
-			// fixme for 3 or more
 			return formatted_units.join(" and ") + " ago";
 		};
 		var format_string = function(formatstrs, vars) {
@@ -30751,12 +29480,9 @@ var $$IMU_EXPORT$$;
 						var header_name = headers[h_i].name.toLowerCase();
 						var header_value = headers[h_i].value;
 						if (header_name === "content-disposition") {
-							// http://cfile7.uf.tistory.com/original/227CF24E57ABEC701869E7
-							// Content-Disposition: inline; filename="160731 LA Kcon stage - 15 copy.jpg"; filename*=UTF-8''160731%20LA%20Kcon%20stage%20-%2015%20copy.jpg
 							var loops = 0;
 							while (loops < 100 && typeof header_value === "string" && header_value.length > 0) {
 								var current_value = header_value.replace(/^\s*([^;]*?)\s*(?:;.*)?$/, "$1");
-								//header_value = header_value.replace(/^[^;]*(?:;\s*(.*))?$/, "$1");
 								var attr = current_value.replace(/^\s*([^=;]*?)\s*(?:[=;].*)?$/, "$1").toLowerCase();
 								var a_match = header_value.match(/^[^=;]*(?:(?:=\s*(?:(?:["']([^'"]*?)["'])|([^;]*?))\s*(;.*)?\s*)|;\s*(.*))?$/);
 								if (!a_match) {
@@ -30764,7 +29490,6 @@ var $$IMU_EXPORT$$;
 									break;
 								}
 								var a_value = a_match[1] || a_match[2];
-								// TODO: implement properly
 								/*if (attr === "filename*") {
 									newobj.filename = a_value;
 								}*/
@@ -30782,7 +29507,6 @@ var $$IMU_EXPORT$$;
 								modified_date = null;
 						}
 						if (newobj.filename.length > 0 && contenttype_ext && modified_date) {
-							// we found everything we're looking for
 							break;
 						}
 					}
@@ -30796,19 +29520,14 @@ var $$IMU_EXPORT$$;
 				if (newobj.filename.length === 0 && !is_data) {
 					newobj.filename = url.replace(/.*\/([^?#/]*)(?:[?#].*)?$/, "$1");
 					found_filename_from_url = true;
-					// Disable as there's no use for this
 					if (false && (newobj.filename.split(".").length - 1) === 1) {
 						newobj.filename = newobj.filename.replace(/(.*)\.[^.]*?$/, "$1");
 					}
 				}
-				// thanks to fireattack on discord for reporting.
-				// test: https://hiyoko-bunko.com/specials/h0xmtix1pv/
-				// https://images.microcms-assets.io/protected/ap-northeast-1:92243b3c-cb7c-44e8-9c84-28ba954120c5/service/hiyoko-bunko/media/hb_sns_%E3%82%A4%E3%83%98%E3%82%99%E3%83%B3%E3%83%88%E5%BD%93%E6%97%A5_200831.jpg
 				if (found_filename_from_url) {
 					newobj.filename = decodeURIComponent(newobj.filename);
 				}
 				orig_filename = newobj.filename;
-				// e.g. for /?...
 				if (newobj.filename.length === 0) {
 					newobj.filename = "download";
 				}
@@ -30828,7 +29547,6 @@ var $$IMU_EXPORT$$;
 				if (filename_split[1])
 					wanted_ext = filename_split[1];
 			}
-			// to avoid formatting the filename multiple times
 			if (!("_orig_filename" in newobj))
 				newobj._orig_filename = orig_filename;
 			var format_vars = {
@@ -30840,14 +29558,12 @@ var $$IMU_EXPORT$$;
 			try {
 				format_vars.host_title = document.title;
 			} catch (e) {
-				// only available for browser versions
 			}
 			if (newobj.url && /^https?:\/\//i.test(newobj.url)) {
 				format_vars.url = newobj.url;
 				format_vars.domain = get_domain_from_url(newobj.url);
 				format_vars.domain_nosub = get_domain_nosub(format_vars.domain);
 			}
-			// todo: only create when needed
 			var create_date = function(name, date) {
 				var map = {
 					"year": "FullYear",
@@ -30966,7 +29682,6 @@ var $$IMU_EXPORT$$;
 			if (openb === "newtab" || openb === "newtab_bg" || openb === "download" || openb === "copylink" || openb === "replace") {
 				stop_waiting();
 				var theobj = data.data.obj;
-				// TODO: improve fix (for data: urls)
 				if (typeof theobj === "string") {
 					theobj = { url: theobj };
 				}
@@ -30982,14 +29697,11 @@ var $$IMU_EXPORT$$;
 				} else if (openb === "copylink") {
 					clipboard_write_link(theobj.url);
 				} else if (openb === "replace") {
-					// todo: use popup options instead of replace images options
 					var replace_options = get_replace_images_options();
 					replace_single_media(replace_options, { el: popup_el }, data, common_functions["nullfunc"]);
 				}
 				return;
 			}
-			//var x = mouseX;//mouseAbsX;
-			//var y = mouseY;//mouseAbsY;
 			var x = data.x;
 			var y = data.y;
 			if (x === null || x === void 0) {
@@ -31039,10 +29751,6 @@ var $$IMU_EXPORT$$;
 					(last_zoom_behavior === "gallery" && popup_el_automatic))) {
 					use_last_zoom = true;
 				}
-				//img.onclick = estop;
-				//img.onmousedown = estop;
-				//img.addEventListener("click", estop, true);
-				//img.addEventListener("mousedown", estop, true);
 				var bgcolor = "#333";
 				var fgcolor = "#fff";
 				var textcolor = "#fff";
@@ -31057,7 +29765,6 @@ var $$IMU_EXPORT$$;
 							force_important: true
 						});
 					}
-					// this allows us to respect a custom opacity for mouseover_mask_styles
 					old_mask_opacity = mask.style.opacity;
 					if (enable_mask_styles === "hold") {
 						set_important_style(mask, "opacity", 0);
@@ -31077,7 +29784,6 @@ var $$IMU_EXPORT$$;
 						if (enable_mask_styles !== "hold") {
 							if (!popup_el_automatic) {
 								set_important_style(mask, "opacity", 0);
-								// this is needed in order to make the transition happen
 								setTimeout(function() {
 									set_important_style(mask, "opacity", old_mask_opacity);
 								}, 1);
@@ -31086,7 +29792,6 @@ var $$IMU_EXPORT$$;
 							}
 						}
 					}
-					// same as the addbtn mousedown stop
 					our_addEventListener(mask, "mousedown", function(e) {
 						if (!settings.mouseover_close_click_outside)
 							return;
@@ -31141,7 +29846,6 @@ var $$IMU_EXPORT$$;
 							}, settings.mouseover_fade_time);
 						}
 					}
-					// setTimeout is needed in order to make the transition happen
 					setTimeout(function() {
 						set_important_style(outerdiv, "opacity", 1);
 						set_important_style(outerdiv, "transform", "scale(1)");
@@ -31157,7 +29861,6 @@ var $$IMU_EXPORT$$;
 				set_important_style(div, "left", "0px");
 				set_important_style(div, "display", "block");
 				set_important_style(div, "background-color", "rgba(255,255,255,.5)");
-				// http://png-pixel.com/
 				var transparent_gif = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
 				var styles_variables = {};
 				if (popup_orig_url && !popup_el_is_stream) {
@@ -31175,14 +29878,6 @@ var $$IMU_EXPORT$$;
 					old_variables: styles_variables
 				});
 				outerdiv.appendChild(div);
-				//div.style.position = "fixed"; // instagram has top: -...px
-				//div.style.zIndex = maxzindex - 2;
-				//div.onclick = estop;
-				//div.onmousedown = estop;
-				//div.addEventListener("click", estop, true);
-				//div.addEventListener("mousedown", estop, true);
-				// useful for instagram
-				//disable_click = true;
 				var outer_thresh = 16;
 				var border_thresh = 20;
 				var top_thresh = 30;
@@ -31213,14 +29908,12 @@ var $$IMU_EXPORT$$;
 					set_top(xy[1]);
 					set_left(xy[0]);
 				};
-				// https://stackoverflow.com/a/23270007
 				function get_lefttopouter() {
 					var style = outerdiv.currentStyle || window.getComputedStyle(outerdiv);
 					return [style.marginLeft + style.borderLeftWidth,
 						style.marginTop + style.borderTopWidth];
 				}
 				update_vwh(x, y);
-				// TODO: improve
 				var set_audio_size = function() {
 					if (!is_audio)
 						return;
@@ -31231,10 +29924,8 @@ var $$IMU_EXPORT$$;
 				};
 				set_audio_size();
 				var el_dimensions = get_el_dimensions(img);
-				// FIXME: when this is set, for some reason, some settings like min-width and min-height can't be set under chrome
 				if (!is_audio)
 					set_el_all_initial(img);
-				//set_audio_size();
 				var add_link = false;
 				if (!is_stream && settings.mouseover_add_link) {
 					add_link = true;
@@ -31242,17 +29933,14 @@ var $$IMU_EXPORT$$;
 					add_link = true;
 				}
 				if (add_link) {
-					// don't !important because it'll override the waiting cursor for automatic (gallery) popups
 					img.style.cursor = "pointer";
 				}
-				// https://stackoverflow.com/questions/7774814/remove-white-space-below-image
 				img.style.verticalAlign = "bottom";
 				set_important_style(img, "display", "block");
 				var update_img_display = function(style) {
 					img.style.setProperty("display", style[0], style[1]);
 				};
 				var visibility_workarounds = [
-					// uBlock Origin on pornhub blocks: video[style*="display: block !important;"]
 					{
 						domain_nosub: /^pornhub(?:premium)?\./,
 						img_display: ["block"]
@@ -31261,10 +29949,6 @@ var $$IMU_EXPORT$$;
 						domain_nosub: /^pornhub(?:premium)?\./,
 						img_display: ["initial", "important"]
 					},
-					// uBlock Origin on gelbooru blocks:
-					//   a[target="_blank"] > img
-					//   a[target="_blank"] > div
-					// https://github.com/qsniyg/maxurl/issues/430#issuecomment-686768694
 					{
 						domain_nosub: /^gelbooru\./,
 						func: function() {
@@ -31306,7 +29990,6 @@ var $$IMU_EXPORT$$;
 					}, 50);
 				};
 				check_img_visibility();
-				// https://github.com/qsniyg/maxurl/issues/330
 				set_important_style(img, "object-fit", "contain");
 				var img_naturalHeight, img_naturalWidth;
 				img_naturalWidth = el_dimensions[0];
@@ -31350,7 +30033,6 @@ var $$IMU_EXPORT$$;
 				};
 				setup_initial_zoom(initial_zoom_behavior, use_last_zoom);
 				if (imgh < 20 || imgw < 20) {
-					// FIXME: This will stop "custom" percentages with low percentages for small images
 					stop_waiting_cant_load();
 					console_error("Image too small to popup (" + imgw + "x" + imgh + ")");
 					return;
@@ -31360,8 +30042,6 @@ var $$IMU_EXPORT$$;
 						width = vw;
 					if (height === void 0)
 						height = vh;
-					//height -= border_thresh * 2;
-					//width  -= border_thresh * 2;
 					var our_imgh = imgh;
 					var our_imgw = imgw;
 					if (imgh > height || imgw > width) {
@@ -31484,17 +30164,12 @@ var $$IMU_EXPORT$$;
 							}
 						};
 						var all_rects = [
-							// top
 							[-1, 0, ovw, v_my - cursor_thresh],
-							// right
 							[1, -1, ovw - v_mx - cursor_thresh, ovh],
-							// bottom
 							[-1, 1, ovw, ovh - v_my - cursor_thresh],
-							// left
 							[0, -1, v_mx - cursor_thresh, ovh]
 						];
 						var rects = [];
-						// TODO: move the current popup position to the top
 						if (x > viewport[0] / 2) {
 							rects.push(all_rects[3]);
 						} else {
@@ -31539,10 +30214,8 @@ var $$IMU_EXPORT$$;
 							popup_top = calc_imgposd(false, largest_origrect[1], imgh);
 							popup_left = calc_imgposd(true, largest_origrect[0], imgw);
 						} else {
-							// ???
 						}
 					} else if (mouseover_position === "beside_cursor_old") {
-						// TODO: maybe improve this to be more interpolated?
 						var popupx;
 						var popupy;
 						var cursor_thresh = border_thresh;
@@ -31572,20 +30245,17 @@ var $$IMU_EXPORT$$;
 								popupy = 0;
 								if (settings.mouseover_prevent_cursor_overlap) {
 									update_imghw(ovw, v_my);
-									//continue;
 								}
 							}
 							if (popupx < 0) {
 								popupx = 0;
 								if (settings.mouseover_prevent_cursor_overlap) {
 									update_imghw(v_mx, ovh);
-									//continue;
 								}
 							}
 							if ((popupy + imgh) > vh) {
 								if (settings.mouseover_prevent_cursor_overlap) {
 									update_imghw(ovw, ovh - v_my);
-									//continue;
 								} else {
 									popupy = Math_max(vh - imgh - cursor_thresh, 0);
 								}
@@ -31593,12 +30263,10 @@ var $$IMU_EXPORT$$;
 							if ((popupx + imgw) > vw) {
 								if (settings.mouseover_prevent_cursor_overlap) {
 									update_imghw(ovw - v_mx, ovh);
-									//continue;
 								} else {
 									popupx = Math_max(vw - imgw - cursor_thresh, 0);
 								}
 							}
-							//break;
 						}
 						popup_top = popupy;
 						popup_left = popupx;
@@ -31680,7 +30348,6 @@ var $$IMU_EXPORT$$;
 					var tagname = "span";
 					if (typeof options.action === "string")
 						tagname = "a";
-					// todo: preparse user styles, then set tagname to img if image
 					var btn = document_createElement(tagname);
 					if (options.action) {
 						var do_action = function() {
@@ -31692,8 +30359,6 @@ var $$IMU_EXPORT$$;
 								action_handler(old_action);
 							};
 						}
-						// thanks to Noodlers on discord for reporting
-						// test: discord emoji picker, mousedown will close it
 						our_addEventListener(btn, "mousedown", function(e) {
 							e.stopPropagation();
 							e.stopImmediatePropagation();
@@ -31702,7 +30367,6 @@ var $$IMU_EXPORT$$;
 							our_addEventListener(btn, "click", function(e) {
 								if (!do_action())
 									return;
-								//console_log(e);
 								e.stopPropagation();
 								e.stopImmediatePropagation();
 								e.preventDefault();
@@ -31752,9 +30416,7 @@ var $$IMU_EXPORT$$;
 					set_important_style(btn, "background", bgcolor);
 					set_important_style(btn, "border", "3px solid " + fgcolor);
 					set_important_style(btn, "border-radius", "10px");
-					// test: https://www.yeshiva.org.il/ (topbarel sets this to ltr, so it must be set to the initial value in order to respect the direction)
 					set_important_style(btn, "direction", text_direction);
-					// workaround for emojis: https://stackoverflow.com/a/39776303
 					if (typeof options.text === "string" && options.text.length === 1 && options.text.charCodeAt(0) > 256) {
 						set_important_style(btn, "color", "transparent");
 						set_important_style(btn, "text-shadow", "0 0 0 " + textcolor);
@@ -31763,18 +30425,14 @@ var $$IMU_EXPORT$$;
 					}
 					set_important_style(btn, "padding", "4px");
 					set_important_style(btn, "line-height", "1em");
-					//btn.style.whiteSpace = "nowrap";
 					set_important_style(btn, "font-size", "14px");
 					set_important_style(btn, "font-family", sans_serif_font);
-					//set_important_style(btn, "height", "1em");
-					// TODO: cache the styles
 					apply_styles(btn, settings.mouseover_ui_styles, {
 						id: options.id,
 						force_important: true,
 						format_vars: newobj.format_vars,
 						properties: {
 							"-imu-text": function(value) {
-								// TODO: support emojis properly
 								if (typeof options.text === "object")
 									options.text.truncated = value;
 								else
@@ -31809,7 +30467,6 @@ var $$IMU_EXPORT$$;
 						set_important_style(btn, "margin-right", "4px");
 					}
 					set_important_style(btn, "vertical-align", "top");
-					//btn.style.maxWidth = "50%";
 					set_important_style(btn, "white-space", "pre-wrap");
 					set_important_style(btn, "display", "inline-block");
 					if (options.action) {
@@ -31841,7 +30498,6 @@ var $$IMU_EXPORT$$;
 					if (options.containers && options.pos) {
 						var container = options.containers[options.pos];
 						container.appendChild(btn);
-						// FIXME: container.clientWidth is 0 until it's visible
 						var dimensions = get_popup_dimensions();
 						if (container.hasAttribute("data-imu-middle_x")) {
 							set_important_style(container, "left", ((dimensions[0] - container.clientWidth) / 2) + "px");
@@ -31886,8 +30542,6 @@ var $$IMU_EXPORT$$;
 					if (can_use_subzindex)
 						set_important_style(topbarel, "z-index", maxzindex - 1);
 					set_important_style(topbarel, "white-space", "nowrap");
-					// test: https://www.yeshiva.org.il/
-					// otherwise, the buttons are in the wrong order
 					set_important_style(topbarel, "direction", "ltr");
 					var left = null;
 					var top = null;
@@ -31910,13 +30564,11 @@ var $$IMU_EXPORT$$;
 					if (y === "top") {
 						top = -(margin + bounding_hadd) + "px";
 					} else if (y === "middle") {
-						// TODO: add buttons vertically, not horizontally
 						top = "calc(50%)";
 						topbarel.setAttribute("data-imu-middle_y", "true");
 					} else if (y === "bottom") {
 						bottom = -(margin + bounding_hadd) + "px";
 					}
-					//console_log(left, right, top, bottom);
 					if (left)
 						set_important_style(topbarel, "left", left);
 					if (right)
@@ -31965,7 +30617,6 @@ var $$IMU_EXPORT$$;
 						}
 					}
 					if (do_hide) {
-						// Not sure why this is needed, but without it, clicking and dragging images doesn't work under Firefox (#78)
 						outerdiv.appendChild(containers["top-left"]);
 						ui_visible = false;
 						return;
@@ -31980,7 +30631,6 @@ var $$IMU_EXPORT$$;
 					if (settings.mouseover_ui_closebtn) {
 						var closebtn = addbtn({
 							id: "closebtn",
-							// \xD7 = ×
 							text: "\xD7",
 							title: _("Close") + " (" + _("ESC") + ")",
 							action: function() {
@@ -32000,13 +30650,11 @@ var $$IMU_EXPORT$$;
 						}
 					};
 					var get_img_width = function() {
-						// This is needed if img isn't displayed yet
 						return img_boundingClientRect.width || imgw || img_naturalWidth;
 					};
 					var get_img_height = function() {
 						return img_boundingClientRect.height || imgh || img_naturalHeight;
 					};
-					// TODO: improve
 					var get_img_disp_height = function() {
 						if (get_img_orientation()) {
 							return get_img_width();
@@ -32095,7 +30743,6 @@ var $$IMU_EXPORT$$;
 						images_total_input.value = prev_images + 1;
 						images_total.setAttribute("data-btn-noaction", true);
 						images_total.appendChild(images_total_input);
-						// https://stackoverflow.com/a/19498477
 						setTimeout(function() {
 							images_total_input.select();
 							images_total_input.setSelectionRange(0, images_total_input.value.length);
@@ -32148,7 +30795,6 @@ var $$IMU_EXPORT$$;
 						}, true);
 					}
 					if (settings.mouseover_ui_optionsbtn) {
-						// \u2699 = ⚙
 						var optionsbtn = addbtn({
 							id: "optionsbtn",
 							text: "\u2699",
@@ -32159,9 +30805,6 @@ var $$IMU_EXPORT$$;
 						});
 					}
 					if (settings.mouseover_ui_downloadbtn) {
-						// \u2193 = ↓
-						// \ud83e\udc6b = 🡫
-						// \uD83E\uDC47 = 🡇
 						var download_glyphs = ["\uD83E\uDC47", "\ud83e\udc6b", "\u2193"];
 						var download_glyph = get_safe_glyph(css_fontcheck, download_glyphs);
 						var downloadbtn = addbtn({
@@ -32178,7 +30821,6 @@ var $$IMU_EXPORT$$;
 							var btn_name = leftright === "left" ? "Rotate Left" : "Rotate Right";
 							return _(btn_name) + " (" + get_trigger_key_text(settings["mouseover_rotate_" + leftright + "_key"]) + ")";
 						};
-						// \u21B6 = ↶
 						var rotateleftbtn = addbtn({
 							id: "rotleftbtn",
 							text: "\u21B6",
@@ -32187,7 +30829,6 @@ var $$IMU_EXPORT$$;
 							pos: "top-left",
 							containers: containers
 						});
-						// \u21B7 = ↷
 						var rotaterightbtn = addbtn({
 							id: "rotrightbtn",
 							text: "\u21B7",
@@ -32206,8 +30847,6 @@ var $$IMU_EXPORT$$;
 						if (caption) {
 							var btntext = caption;
 							if (settings.mouseover_ui_wrap_caption) {
-								// /10 is arbitrary, but seems to work well
-								// TODO: make top-left dynamic
 								var chars = parseInt(Math_max(10, Math_min(60, (popup_width - containers["top-left"].clientWidth) / 10)));
 								btntext = {
 									truncated: truncate_with_ellipsis(caption, chars),
@@ -32257,7 +30896,6 @@ var $$IMU_EXPORT$$;
 						lrhover.style.position = "absolute";
 						lrhover.style.width = "15%";
 						lrhover.style.maxWidth = "200px";
-						//lrhover.style.height = "100%";
 						lrhover.style.zIndex = maxzindex - 2;
 						lrhover.style.cursor = "pointer";
 						opacity_hover(lrhover, btnel, true);
@@ -32280,11 +30918,7 @@ var $$IMU_EXPORT$$;
 							return lraction(leftright);
 						};
 						var name = leftright ? "Next" : "Previous";
-						// \u2190 = ←
-						// \ud83e\udc50 = 🡐
 						var left_glyphs = ["\ud83e\udc50", "\u2190"];
-						// \u2192 = →
-						// \ud83e\udc52 = 🡒
 						var right_glyphs = ["\ud83e\udc52", "\u2192"];
 						var lr_glyphs = leftright ? right_glyphs : left_glyphs;
 						var icon = get_safe_glyph(css_fontcheck, lr_glyphs);
@@ -32309,8 +30943,6 @@ var $$IMU_EXPORT$$;
 							btn.style.left = "initial";
 							btn.style.right = "-" + em1;
 						}*/
-						//outerdiv.appendChild(btn);
-						//ui_els.push(btn);
 						add_lrhover(!leftright, btn, action, title);
 						if (settings.mouseover_enable_gallery && settings.mouseover_ui_gallerycounter) {
 							if (use_cached_gallery) {
@@ -32356,7 +30988,6 @@ var $$IMU_EXPORT$$;
 				set_el_all_initial(a);
 				if (add_link) {
 					a.style.cursor = "pointer";
-					//a.addEventListener("click", function(e) {
 					a.onclick = function(e) {
 						e.stopPropagation();
 						e.stopImmediatePropagation();
@@ -32398,7 +31029,6 @@ var $$IMU_EXPORT$$;
 				};
 				if (add_link) {
 					a.href = url;
-					// set this here instead of outside this block for gelbooru: https://github.com/qsniyg/maxurl/issues/430
 					a.target = "_blank";
 					if (settings.mouseover_download) {
 						if (false) {
@@ -32426,7 +31056,6 @@ var $$IMU_EXPORT$$;
 					} else if (is_video && settings.mouseover_click_video_close) {
 						click_close = true;
 					}
-					// TODO: what about audio?
 					if (click_close) {
 						our_addEventListener(a, "click", function(e) {
 							if (dragged)
@@ -32485,7 +31114,6 @@ var $$IMU_EXPORT$$;
 					dragoffsetX = dragstartX - parseFloat(outerdiv.style.left);
 					dragoffsetY = dragstartY - parseFloat(outerdiv.style.top);
 				}
-				// TODO: allow this to be live-reloaded
 				if (get_single_setting("mouseover_pan_behavior") === "drag") {
 					if (is_stream) {
 						img.onseeking = function(e) {
@@ -32498,37 +31126,26 @@ var $$IMU_EXPORT$$;
 					div.ondragstart = a.ondragstart = img.ondragstart = function(e) {
 						if (seekstart)
 							return;
-						//dragstart = true;
-						//dragged = false;
 						startdrag(e);
-						//e.stopPropagation();
 						estop(e);
 						return false;
 					};
-					//div.ondrop = estop;
 					div.onmousedown = div.onpointerdown = a.onmousedown = a.onpointerdown = function(e) {
-						//console_log("(div,a).mousedown", e);
 						if (btndown || e.button !== 0 || seekstart)
 							return;
-						//dragstart = true;
-						//dragged = false;
 						startdrag(e);
 						e.preventDefault();
 						estop(e);
 						return false;
 					};
 					img.onmousedown = img.onpointerdown = function(e) {
-						//console_log("img.onmousedown", e);
 						if (btndown || e.button !== 0 || seekstart)
 							return;
-						//dragstart = true;
-						//dragged = false;
 						startdrag(e);
 						estop(e);
 						return true;
 					};
 					a.onclick = function(e) {
-						//console_log("a.onclick", e);
 						dragstart = false;
 						if (dragged) {
 							estop(e);
@@ -32540,23 +31157,16 @@ var $$IMU_EXPORT$$;
 						return true;
 					};
 					div.onmouseup = div.onpointerup = div.onclick = a.onmouseup = a.onpointerup = /*a.onclick =*/ function(e) {
-						//console_log("(div,a).mouseup", e);
 						dragstart = false;
 						if (dragged) {
-							//estop(e);
 							return false;
 						}
 						e.stopPropagation();
 						e.stopImmediatePropagation();
 						return true;
 					};
-					// Enabling this makes buttons not work after clicking the link
-					//div.addEventListener("click", div.onclick, true);
-					//a.addEventListener("click", a.onclick, true);
 					img.onmouseup = img.onpointerup = img.onclick = function(e) {
-						//console_log("img.mouseup", e);
 						dragstart = false;
-						//estop(e);
 						return true;
 					};
 					if (is_video) {
@@ -32570,9 +31180,7 @@ var $$IMU_EXPORT$$;
 									play_video(img);
 								}
 							}
-							//console_log("img.mouseup", e);
 							dragstart = false;
-							//estop(e);
 							return true;
 						};
 					}
@@ -32591,7 +31199,6 @@ var $$IMU_EXPORT$$;
 						x = "center";
 					if (y === void 0)
 						y = "center";
-					// used by pagemiddle, determines the final desired global position
 					var x_moveto = null;
 					var y_moveto = null;
 					if (zoomdir > 0) {
@@ -32606,17 +31213,13 @@ var $$IMU_EXPORT$$;
 								y = "pagemiddle";
 						}
 					}
-					// TODO: if mouse is within the popup, use the mouse's coordinates instead
-					//   This will have to check the zoom_origin setting.
 					if (x === "center" || x === "pagemiddle") {
 						if (x === "pagemiddle")
 							x_moveto = vw / 2;
 						var visible_left = Math_max(popup_left, 0);
 						var visible_right = Math_min(visible_left + popup_width, vw);
-						// get the middle of the visible portion of the popup
 						x = visible_left + (visible_right - visible_left) / 2;
 					} else {
-						// ensure it's clamped, e.g. when scrolling on the document instead of the popup
 						if (x < popup_left)
 							x = popup_left;
 						else if (x > popup_left + popup_width)
@@ -32721,7 +31324,6 @@ var $$IMU_EXPORT$$;
 						return origpos + change;
 					};
 					if (true || (imgwidth <= vw && imgheight <= vh) || zoom_mode === "incremental") {
-						// centers wanted region to pointer
 						newx = (x - percentX * imgwidth);
 						if (x_moveto !== null) {
 							newx = zoom_lerp(x_moveto - imgwidth / 2, newx, vw);
@@ -32731,7 +31333,6 @@ var $$IMU_EXPORT$$;
 							newy = zoom_lerp(y_moveto - imgheight / 2, newy, vh);
 						}
 					} else if (imgwidth > vw || imgheight > vh) {
-						// centers wanted region to center of screen
 						newx = (vw / 2) - percentX * imgwidth;
 						var endx = newx + imgwidth;
 						if (newx > border_thresh && endx > (vw - border_thresh))
@@ -32745,7 +31346,6 @@ var $$IMU_EXPORT$$;
 						if (newy < border_thresh && endy < (vh - border_thresh))
 							newy = Math_min(border_thresh, (vh + border_thresh) - imgheight);
 					}
-					// fitfull only because incremental is under user control
 					if (zoom_mode === "fitfull" && imgwidth <= vw && imgheight <= vh) {
 						newx = Math_max(newx, border_thresh);
 						if (newx + imgwidth > (vw - border_thresh)) {
@@ -32756,11 +31356,9 @@ var $$IMU_EXPORT$$;
 							newy = (vh + border_thresh) - imgheight;
 						}
 					}
-					//var lefttop = get_lefttopouter();
 					outerdiv.style.left = (newx /* - lefttop[0]*/) + "px";
 					outerdiv.style.top = (newy /* - lefttop[1]*/) + "px";
 					create_ui(true);
-					// The mouse could accidentally land outside the image in theory
 					mouse_in_image_yet = false;
 					return false;
 				};
@@ -32893,7 +31491,6 @@ var $$IMU_EXPORT$$;
 				document.documentElement.appendChild(outerdiv);
 				removepopups();
 				check_image_ref(img);
-				// even if autoplay is enabled, if the element is cached, it won't play automatically
 				if (is_stream) {
 					if (settings.mouseover_video_autoplay) {
 						play_video(img);
@@ -32909,15 +31506,11 @@ var $$IMU_EXPORT$$;
 						popup_contentlength = parseInt(parsed_headers["content-length"]) || 0;
 					}
 				}
-				//can_close_popup = [false, false];
-				// don't set [0] to false, in case "Keep popup open until" == Any/All and keys are released before popup opens
 				can_close_popup[1] = false;
-				// don't unhold if in gallery
 				if (!popup_el_automatic)
 					popup_hold = false;
 				mouse_in_image_yet = false;
 				delay_handle_triggering = false;
-				// causes issues with "Don't close until mouse leaves" if the mouse doesn't move
 				if (false && popup_trigger_reason !== "mouse") {
 					can_close_popup[1] = true;
 				}
@@ -32925,14 +31518,12 @@ var $$IMU_EXPORT$$;
 					dont_wait_anymore();
 				}, 1);
 				popups_active = true;
-				//console_log(div);
 				add_resetpopup_timeout();
 			}
 			cb(data.data.img, data.data.newurl /*, obj*/);
 		}
 		var getunit_el = null;
 		var getunit_cache = new IMUCache();
-		// getUnit is really slow, e.g. on forbiddenplanet.com (max-width: 39em)
 		function getUnit(unit) {
 			if (unit.match(/^ *([0-9]+)px *$/)) {
 				return unit.replace(/^ *([0-9]+)px *$/, "$1");
@@ -32940,19 +31531,15 @@ var $$IMU_EXPORT$$;
 			if (getunit_cache.has(unit)) {
 				return getunit_cache.get(unit);
 			}
-			// Based on https://github.com/tysonmatanich/getEmPixels/blob/master/getEmPixels.js
-			// /*! getEmPixels  | Author: Tyson Matanich (http://matanich.com), 2013 | License: MIT */
 			var important = "!important;";
 			var style = "position:absolute!important;visibility:hidden!important;width:" + unit + "!important;font-size:" + unit + "!important;padding:0!important";
 			var extraBody;
 			var unitel = document.body;
 			if (!unitel) {
-				// Emulate the documentElement to get rem value (documentElement does not work in IE6-7)
 				unitel = extraBody = document_createElement("body");
 				extraBody.style.cssText = "font-size:" + unit + "!important;";
 				document.documentElement.insertBefore(extraBody, document.body);
 			}
-			// Create and style a test element
 			if (!getunit_el) {
 				getunit_el = document_createElement("i");
 				set_el_all_initial(getunit_el);
@@ -32962,19 +31549,14 @@ var $$IMU_EXPORT$$;
 			}
 			set_important_style(getunit_el, "width", unit);
 			set_important_style(getunit_el, "font-size", unit);
-			//getunit_el.style.cssText = style;
 			unitel.appendChild(getunit_el);
-			// Get the client width of the test element
 			var value = getunit_el.clientWidth;
 			getunit_cache.set(unit, value, 5 * 60);
 			if (extraBody) {
-				// Remove the extra body element
 				document.documentElement.removeChild(extraBody);
 			} else {
-				// Remove the test element
 				unitel.removeChild(getunit_el);
 			}
-			// Return the em value in pixels
 			return value;
 		}
 		function valid_source(source) {
@@ -33004,7 +31586,6 @@ var $$IMU_EXPORT$$;
 			return rect;
 		};
 		var copy_rect = function(rect) {
-			// simplified copy, need to use recalculate_rect after
 			return {
 				x: rect.x,
 				y: rect.y,
@@ -33025,7 +31606,6 @@ var $$IMU_EXPORT$$;
 			return null;
 		};
 		function get_bounding_client_rect_inner(el, mapcache, need_rect) {
-			// test: https://4seasonstaeyeon.tumblr.com/post/190710743124 (bottom images)
 			if (!el)
 				return null;
 			if (mapcache && mapcache.has(el)) {
@@ -33047,12 +31627,6 @@ var $$IMU_EXPORT$$;
 				orig_rect = el.getBoundingClientRect();
 			var rect = null;
 			var zoom = 1;
-			//var computed_style = get_computed_style(el);
-			// computed_style is slow, and also might not be what we're looking for, as it might contain the parent's zoom
-			// this is still very slow though (50ms on facebook)
-			// https://thisistian.github.io/publication/real-time-subsurface-with-adaptive-sampling/
-			// math tags don't have style
-			// TS removes the "zoom" property from CSSStyleDeclaration
 			if ("style" in el && el.style.zoom) {
 				zoom = parse_zoom(el.style.zoom);
 				if (zoom && zoom !== 1) {
@@ -33073,9 +31647,7 @@ var $$IMU_EXPORT$$;
 				rect.width *= parent.zoom;
 				rect.height *= parent.zoom;
 				zoom *= parent.zoom;
-				//console.log(el, zoom, deepcopy(rect));
 			}
-			// this is surprisingly slow, so rect is optimized out if possible
 			if (false && parent.rect && parent.orig_rect) {
 				if (!orig_rect)
 					orig_rect = el.getBoundingClientRect();
@@ -33131,7 +31703,6 @@ var $$IMU_EXPORT$$;
 			var current = el;
 			do {
 				if (array_indexof(popups, current) >= 0) {
-					//console_error("Trying to find popup");
 					return true;
 				}
 			} while ((current = current.parentElement));
@@ -33142,7 +31713,6 @@ var $$IMU_EXPORT$$;
 				options = {};
 			if (!("links" in options))
 				options.links = get_single_setting("mouseover_links");
-			//console_log(els);
 			var ok_els = [];
 			var result = _find_source(els, ok_els, options);
 			nir_debug("find_source", "find_source: result =", result, "ok_els =", ok_els);
@@ -33164,7 +31734,6 @@ var $$IMU_EXPORT$$;
 				return ret_bad();
 			}
 			var thresh = parse_int(get_tprofile_setting("mouseover_minimum_size"));
-			// if it can be imu'd, ignore the treshold because the image could be any size
 			if (isNaN(thresh) || result.imu)
 				thresh = 0;
 			var maxThresh = parse_int(get_tprofile_setting("popup_maximum_source_size"));
@@ -33185,12 +31754,10 @@ var $$IMU_EXPORT$$;
 			return result;
 		}
 		function _find_source(els, ok_els, options) {
-			// resetpopups() is already called in trigger_popup()
 			/*if (popups_active)
 				return;*/
 			nir_debug("find_source", "_find_source (els)", els);
 			var sources = {};
-			//var picture_sources = {};
 			var links = {};
 			var layers = [];
 			var ok_els_set = new_set();
@@ -33212,8 +31779,6 @@ var $$IMU_EXPORT$$;
 						(visible_valid && style.visibility === "hidden")) {
 						return false;
 					}
-					// https://www.msn.com/en-us/music/news/the-weeknd-calls-grammys-corrupt-slams-lack-of-transparency-after-nominations-shutout/ar-BB1bkAHH ("more for you" section)
-					// a higher element has visibility: hidden, but a lower one has visibility: visible
 					if (visible_valid && style.visibility === "visible") {
 						visible_valid = false;
 					}
@@ -33268,7 +31833,6 @@ var $$IMU_EXPORT$$;
 					}
 					if (result[i].bad)
 						return false;
-					// if result.length > 1, then it can be imu'd
 					if (result.length > 1) {
 						return newurl || true;
 					} else {
@@ -33293,8 +31857,6 @@ var $$IMU_EXPORT$$;
 						id: id++,
 					};
 				}
-				// blank images
-				// https://www.harpersbazaar.com/celebrity/red-carpet-dresses/g7565/selena-gomez-style-transformation/?slide=2
 				var el_style = null;
 				if (el) {
 					el_style = window.getComputedStyle(el) || el.style;
@@ -33314,15 +31876,11 @@ var $$IMU_EXPORT$$;
 					sources[src].imu = !!imucheck;
 				}
 				if (imucheck === true) {
-					// do this after imu_check, for lazy loaded images that have 1x1 images
 					if (src && (src.match(/^data:/) && !(/^data:image\/svg\+xml;/.test(src)) && src.length <= 500)) {
 						nir_debug("find_source", "Tiny data: image", el, src);
 						return false;
 					}
 				}
-				// https://www.smugmug.com/
-				// https://www.vogue.com/article/lady-gaga-met-gala-2019-entrance-behind-the-scenes-video
-				// https://www.pinterest.com/
 				if (!check_visible(el)) {
 					nir_debug("find_source", "Invisible: image", el);
 					return false;
@@ -33351,7 +31909,6 @@ var $$IMU_EXPORT$$;
 				return true;
 			}
 			function addTagElement(el, layer) {
-				//nir_debug("find_source", "addTagElement", el);
 				if (helpers && helpers.element_ok) {
 					if (!set_has(ok_els_set, el)) {
 						var element_ok_result = helpers.element_ok(el);
@@ -33405,17 +31962,6 @@ var $$IMU_EXPORT$$;
 						return;
 					var ssources = [];
 					var srcset = el.srcset;
-					// https://www.erinyamagata.com/art-direction/kiernan-shipka
-					// https://format-com-cld-res.cloudinary.com/image/private/s--hNRUHHWH--/c_crop,h_1596,w_1249,x_0,y_0/c_fill,g_center,w_2500/fl_keep_iptc.progressive,q_95/v1/986aaf7dd74bd5041ddfc495c430bf0d/KShipkaR29MW_FULL_3468.jpg?2500 2500w 3194h, https://format-com-cld-res.cloudinary.com/image/private/s--VSup0NR3--/c_crop,h_1596,w_1249,x_0,y_0/c_fill,g_center,w_900/fl_keep_iptc.progressive,q_95/v1/986aaf7dd74bd5041ddfc495c430bf0d/KShipkaR29MW_FULL_3468.jpg?900 900w 1150h
-					// newlines: https://www.rt.com/russia/447357-miss-moscow-2018-photos/
-					//
-					// https://cdni.rt.com/files/2018.12/xxs/5c221e1ffc7e9397018b4600.jpg 280w,
-					// https://cdni.rt.com/files/2018.12/xs/5c221e1ffc7e9397018b4601.jpg 320w,
-					// https://cdni.rt.com/files/2018.12/thumbnail/5c221e1ffc7e9397018b45ff.jpg 460w,
-					// https://cdni.rt.com/files/2018.12/m/5c221e1ffc7e9397018b4602.jpg 540w,
-					// https://cdni.rt.com/files/2018.12/l/5c221e1ffc7e9397018b4603.jpg 768w,
-					// https://cdni.rt.com/files/2018.12/article/5c221e1ffc7e9397018b45fe.jpg 980w,
-					// https://cdni.rt.com/files/2018.12/xxl/5c221e20fc7e9397018b4604.jpg 1240w
 					while (srcset.length > 0) {
 						var old_srcset = srcset;
 						srcset = srcset.replace(/^\s+/, "");
@@ -33428,30 +31974,24 @@ var $$IMU_EXPORT$$;
 						if (srcset === old_srcset)
 							break;
 					}
-					//var ssources = el.srcset.split(/ +[^ ,/],/);
 					var sizes = [];
 					if (el.sizes) {
 						sizes = el.sizes.split(",");
 					}
-					// https://www.gamestar.de/artikel/red-dead-redemption-2-pc-vorabversion-mit-limit-bei-120-fps-directx-12-und-vulkan,3350718.html
-					// sidebar articles: //8images.cgames.de/images/gamestar/256/red-dead-redemption-2_6062507.jpg, //8images.cgames.de/images/gamestar/210/red-dead-redemption-2_6062507.jpg 2x
 					for (var i = 0; i < ssources.length; i++) {
 						var src = norm(ssources[i].replace(/^(\S+)(?:\s+[\s\S]+)?\s*$/, "$1"));
 						var desc = ssources[i].slice(src.length).replace(/^\s*([\s\S]*?)\s*$/, "$1");
 						if (!addImage(src, el, { layer: layer }))
 							continue;
-						//picture_sources[src] = sources[src];
 						sources[src].picture = el.parentElement;
 						if (desc) {
 							sources[src].desc = desc;
-							// https://format-com-cld-res.cloudinary.com/image/pr…dc82/004_003_03-000083520001.jpg?2500 2500w 1831h
 							while (desc.length > 0) {
 								desc = desc.replace(/^\s+/, "");
 								var whxmatch = desc.match(/^([0-9.]+)([whx])(?:\s+[0-9.]+[\s\S]*)?\s*$/);
 								if (whxmatch) {
 									var number = parseFloat(whxmatch[1]);
 									if (number > 0) {
-										// if width/height/desc_x > number, then number is probably more accurate (multiple els, see rt link above)
 										if (whxmatch[2] === "w" && (!sources[src].width || sources[src].width > number))
 											sources[src].width = number;
 										else if (whxmatch[2] === "h" && (!sources[src].height || sources[src].height > number))
@@ -33468,25 +32008,21 @@ var $$IMU_EXPORT$$;
 						if (el.media) {
 							sources[src].media = el.media;
 							if (el.media.match(/min-width:\s*([0-9]+)/)) {
-								//picture_minw = true;
 								var minWidth = getUnit(el.media.replace(/.*min-width:\s*([0-9.a-z]+).*/, "$1"));
 								if (!sources[src].minWidth || sources[src].minWidth > minWidth)
 									sources[src].minWidth = minWidth;
 							}
 							if (el.media.match(/max-width:\s*([0-9]+)/)) {
-								//picture_maxw = true;
 								var maxWidth = getUnit(el.media.replace(/.*max-width:\s*([0-9.a-z]+).*/, "$1"));
 								if (!sources[src].maxWidth || sources[src].maxWidth > maxWidth)
 									sources[src].maxWidth = maxWidth;
 							}
 							if (el.media.match(/min-height:\s*([0-9]+)/)) {
-								//picture_minh = true;
 								var minHeight = getUnit(el.media.replace(/.*min-height:\s*([0-9.a-z]+).*/, "$1"));
 								if (!sources[src].minHeight || sources[src].minHeight > minHeight)
 									sources[src].minHeight = minHeight;
 							}
 							if (el.media.match(/max-height:\s*([0-9]+)/)) {
-								//picture_maxh = true;
 								var maxHeight = getUnit(el.media.replace(/.*max-height:\s*([0-9.a-z]+).*/, "$1"));
 								if (!sources[src].maxHeight || sources[src].maxHeight > maxHeight)
 									sources[src].maxHeight = maxHeight;
@@ -33572,7 +32108,6 @@ var $$IMU_EXPORT$$;
 						continue;
 					var our_func = tokenized[i][0];
 					var funcname = our_func.name;
-					// TODO: support image() and cross-fade()
 					var allowed = [
 						"url",
 						"-webkit-image-set",
@@ -33619,7 +32154,6 @@ var $$IMU_EXPORT$$;
 							var number = parseFloat(whxmatch[1]);
 							if (number > 0) {
 								var unit = whxmatch[2];
-								// https://drafts.csswg.org/css-values-3/#cm
 								if (unit === "dppx") {
 									number *= 96;
 									unit = "dpi";
@@ -33649,7 +32183,6 @@ var $$IMU_EXPORT$$;
 						continue;
 					var our_func = tokenized[i][0];
 					var funcname = our_func.name;
-					// TODO: support image() and cross-fade()
 					var allowed = [
 						"url",
 						"-webkit-image-set",
@@ -33675,11 +32208,6 @@ var $$IMU_EXPORT$$;
 				var str_tokenized = _tokenize_css_value(str)[0];
 				if (!has_bgimage_url(str_tokenized))
 					return null;
-				// -webkit-image-set(url('https://carbonmade-media.accelerator.net/34754698;460x194/lossless.webp') 1x, url('https://carbonmade-media.accelerator.net/34754698;920x388/lossless.webp') 2x)
-				//var emptystrregex = /^(.*?\)\s*,)?\s*url[(]["']{2}[)]/;
-				//if (!str.match(/^(.*?\)\s*,)?\s*url[(]/) || emptystrregex.test(str))
-				//	return null;
-				// window.getComputedStyle returns the window's URL in this case for some reason, so we need the element's style to find the empty string
 				var elstr_tokenized;
 				if (elstr) {
 					elstr_tokenized = _tokenize_css_value(elstr)[0];
@@ -33739,13 +32267,9 @@ var $$IMU_EXPORT$$;
 				add_bgimage(layer, el, window.getComputedStyle(el, ":after"), "after");
 			}
 			for (var i = 0; i < els.length; i++) {
-				// sidebar articles on https://www.rt.com/russia/447357-miss-moscow-2018-photos/
-				// the <picture> element has a size of 0, and hence isn't added to find_els_at_point
 				if (els[i].tagName === "IMG" && els[i].parentElement && els[i].parentElement.tagName === "PICTURE" && array_indexof(els, els[i].parentElement) < 0) {
 					els.splice(i + 1, 0, els[i].parentElement);
 				}
-				// remove every element before PICTURE as they will be added automatically anyways
-				// this messes up the layering
 				if (els[i].tagName === "PICTURE" && i == 1) {
 					els.splice(0, i);
 					i = 0;
@@ -33757,12 +32281,10 @@ var $$IMU_EXPORT$$;
 				addElement(el);
 			}
 			if (_nir_debug_) {
-				//console_log(els);
 				nir_debug("find_source", "_find_source (sources)", deepcopy(sources));
 				nir_debug("find_source", "_find_source (layers)", deepcopy(layers));
 				nir_debug("find_source", "_find_source (ok_els)", deepcopy(ok_els));
 			}
-			// remove sources that aren't used
 			var activesources = [];
 			for (var i = 0; i < layers.length; i++) {
 				for (var j = 0; j < layers[i].length; j++) {
@@ -33867,7 +32389,6 @@ var $$IMU_EXPORT$$;
 						have_something = true;
 					}
 					if (source.dpi && source.dpi > minDpi) {
-						//dpiX = source.dpi; // commenting out because dpiX doesn't exist
 						elDpi = source;
 						have_something = true;
 					}
@@ -33901,7 +32422,6 @@ var $$IMU_EXPORT$$;
 					layers[i].push(url);
 				}
 			}
-			// TODO: improve?
 			function pickbest(layer) {
 				for (var i = 0; i < layer.length; i++) {
 					var source_url = layer[i];
@@ -33923,9 +32443,6 @@ var $$IMU_EXPORT$$;
 			nir_debug("find_source", "_find_source (new layers)", deepcopy(layers));
 			rebuildlayers();
 			nir_debug("find_source", "_find_source (rebuilt layers)", deepcopy(layers));
-			// If there are background images ahead of an image, it's likely to be masks
-			// Maybe check if there's more than one element of ancestry between them?
-			// Except: https://www.flickr.com/account/upgrade/pro (featured pro, the avatar's image is a bg image, while the image behind isn't)
 			if (layers.length > 1 && layers[0].length === 1 && sources[layers[0][0]].isbg) {
 				for (var i = 1; i < layers.length; i++) {
 					if (layers[i].length === 1 && sources[layers[i][0]].isbg)
@@ -33944,8 +32461,6 @@ var $$IMU_EXPORT$$;
 		var get_next_in_gallery_generic = function(el, nextprev) {
 			if (!el)
 				return null;
-			// https://www.gog.com/game/shadow_warrior_complete
-			// "Buy series" gallery
 			if (array_indexof(["SOURCE", "IMG"], el.tagName) >= 0 && el.parentElement && array_indexof(["PICTURE", "VIDEO"], el.parentElement.tagName) >= 0) {
 				el = el.parentElement;
 			}
@@ -33970,7 +32485,6 @@ var $$IMU_EXPORT$$;
 				}
 				if (current_el.tagName === stack[0]) {
 					if (stack.length === 1) {
-						//if (valid_source(current_el))
 						if (is_valid_el(current_el))
 							return current_el;
 						continue;
@@ -34007,9 +32521,7 @@ var $$IMU_EXPORT$$;
 					el = popup_orig_el;
 				}
 			}
-			// FIXME: this is a rather bad hack to fix https://github.com/qsniyg/maxurl/issues/467
 			previous_album_links = [];
-			// FIXME: disabling because get_next_in_gallery can be called multiple times, just for checking links, not for actually redirecting
 			if (false && popup_obj && popup_obj.album_info && popup_obj.album_info.type === "links") {
 				array_foreach(popup_obj.album_info.links, function(link) {
 					previous_album_links.push(link.url);
@@ -34087,7 +32599,6 @@ var $$IMU_EXPORT$$;
 				current_chord_timeout[str] = Date.now();
 				if (array_indexof(current_chord, str) < 0) {
 					current_chord.push(str);
-					//console_log("+" + str);
 					return true;
 				}
 			} else {
@@ -34095,7 +32606,6 @@ var $$IMU_EXPORT$$;
 				if (array_indexof(current_chord, str) >= 0) {
 					current_chord.splice(array_indexof(current_chord, str), 1);
 					clear_chord_if_only_wheel();
-					//console_log("-" + str);
 					return true;
 				}
 			}
@@ -34104,9 +32614,6 @@ var $$IMU_EXPORT$$;
 		function event_in_single_chord(e, wanted_chord) {
 			var map = get_keystrs_map(e, true);
 			for (var key in map) {
-				// otherwise, modifiers like ctrl etc. get counted, even if they're not pressed (because get_keystrs_map reports them as false)
-				// todo: if this function is ever called in keyup, another solution is needed.
-				// for now, it'll only ever be called on keydown
 				if (!map[key])
 					continue;
 				if (keystr_in_trigger(key, wanted_chord))
@@ -34163,7 +32670,6 @@ var $$IMU_EXPORT$$;
 				if (array_indexof(current_chord, key) < 0)
 					return false;
 			}
-			// e.g. if the user presses shift+r, but the chord is r, then it should fail
 			for (var i = 0; i < current_chord.length; i++) {
 				if (keystr_is_wheel(current_chord[i]))
 					continue;
@@ -34202,7 +32708,6 @@ var $$IMU_EXPORT$$;
 		function get_close_need_mouseout() {
 			return settings.mouseover_close_need_mouseout && get_close_behavior() !== "esc";
 		}
-		// commenting out because it's unused and close_on_leave_el no longer exists
 		/*function get_close_on_leave_el() {
 			return settings.mouseover_close_on_leave_el && get_single_setting("mouseover_position") === "beside_cursor";
 		}*/
@@ -34211,7 +32716,6 @@ var $$IMU_EXPORT$$;
 				currenttab_is_image() && !imagetab_ok_override;
 		}
 		function find_els_at_point(xy, els, prev, zoom_cache) {
-			// test for pointer-events: none: https://www.shacknews.com/article/114834/should-you-choose-vulkan-or-directx-12-in-red-dead-redemption-2
 			if (false && _nir_debug_)
 				console_log("find_els_at_point", deepcopy(xy), deepcopy(els), deepcopy(prev));
 			var first_run = false;
@@ -34258,18 +32762,13 @@ var $$IMU_EXPORT$$;
 					el_shadow_children = el.shadowRoot.children;
 					el_has_children = true;
 				}
-				// FIXME: should we stop checking if not in bounding client rect?
-				// this would depend on the fact that children are always within the bounding rect
-				//  - probably not, there are cases where the parent div has a size of 0, but children have proper sizes
 				if (el_has_children) {
-					// reverse, because the last element is (usually) the highest z
 					var newchildren = [];
 					if (el_children) {
 						for (var j = el_children.length - 1; j >= 0; j--) {
 							newchildren.push(el_children[j]);
 						}
 					}
-					// shadow is above non-shadow?
 					if (el_shadow_children) {
 						for (var j = el_shadow_children.length - 1; j >= 0; j--) {
 							newchildren.push(el_shadow_children[j]);
@@ -34278,15 +32777,11 @@ var $$IMU_EXPORT$$;
 					var newels = find_els_at_point(xy, newchildren, prev, zoom_cache);
 					for (var j = 0; j < newels.length; j++) {
 						var newel = newels[j];
-						//console_log("about to add", newel, deepcopy(ret))
 						if (array_indexof(ret, newel) < 0) {
-							//console_log("adding", newel);
 							ret.push(newel);
 						}
 					}
 				}
-				// youtube links on: https://old.reddit.com/r/anime/comments/btlmky/wt_mushishi_a_beautifully_melancholic_take_on_the/
-				// they pop up outside of the cursor
 				var rect = get_bounding_client_rect(el, zoom_cache);
 				if (rect && rect.width > 0 && rect.height > 0 &&
 					rect.left <= xy[0] && rect.right >= xy[0] &&
@@ -34310,19 +32805,13 @@ var $$IMU_EXPORT$$;
 				var parent_zindex = 0;
 				if (el.parentElement) {
 					var parent_zindex = get_zindex(el.parentElement); // + 0.001; // hack: child elements appear above parent elements
-					// don't use the above hack, it breaks z-ordering, the indexOf thing works already
 				}
 				if (zindex === "auto") {
 					return parent_zindex;
 				} else {
 					zindex = parseFloat(zindex);
-					// https://robertsspaceindustries.com/orgs/LUG/members
 					if (zindex < parent_zindex)
 						return parent_zindex + zindex; // hack:
-					// <div style="z-index: 9"></div>
-					// <div style="z-index: 10">
-					//   <div style="z-index: 2">this is above z-index: 9 because it's a child of z-index: 10</div>
-					// </div>
 					else
 						return zindex;
 				}
@@ -34347,17 +32836,13 @@ var $$IMU_EXPORT$$;
 					return get_zindex_raw(el);
 				}
 			};
-			// TODO: only sort elements that were added outside of elementsFromPoint
 			ret.sort(function(a, b) {
 				var a_zindex, b_zindex;
 				a_zindex = get_zindex(a);
 				b_zindex = get_zindex(b);
-				//console_log(a_zindex, b_zindex, a, b);
 				if (b_zindex === a_zindex) {
-					// Don't modify the sort order
 					return array_indexof(ret, a) - array_indexof(ret, b);
 				} else {
-					// opposite because we want it to be reversed (largest first)
 					return b_zindex - a_zindex;
 				}
 			});
@@ -34376,11 +32861,9 @@ var $$IMU_EXPORT$$;
 			}
 			if (_nir_debug_)
 				console_log("trigger_popup (options:", options, ")", current_frame_id);
-			// this check is set here instead of trigger_popup_with_source because automatic requests (e.g. gallery) should be ok
 			if (!settings.mouseover_allow_popup_when_fullscreen && is_fullscreen() && !is_popup_fullscreen())
 				return;
 			delay_handle_triggering = true;
-			//var els = document.elementsFromPoint(mouseX, mouseY);
 			var point = null;
 			if (mousepos_initialized)
 				point = [mouseX, mouseY];
@@ -34391,10 +32874,8 @@ var $$IMU_EXPORT$$;
 				return;
 			}
 			var els = find_els_at_point(point);
-			//console_log(els);
 			if (_nir_debug_)
 				console_log("trigger_popup: els =", els, "point =", point);
-			// clearing in order to somewhat mitigate shift+right click issues: https://github.com/qsniyg/maxurl/issues/679
 			if (options.is_contextmenu) {
 				mouseContextX = null;
 				mouseContextY = null;
@@ -34460,7 +32941,6 @@ var $$IMU_EXPORT$$;
 					}
 					return cb(false);
 				}
-				// FIXME: this shouldn't fail, but rather go to the next element
 				if (automatic && previous_album_links && source_imu && source_imu[0]) {
 					if (array_indexof(previous_album_links, source_imu[0].url) >= 0) {
 						delay_handle_triggering = false;
@@ -34469,7 +32949,6 @@ var $$IMU_EXPORT$$;
 					}
 				}
 				var was_fullscreen = is_popup_fullscreen();
-				//console_log(source_imu);
 				resetpopups({
 					new_popup: true,
 					automatic: automatic
@@ -34503,7 +32982,6 @@ var $$IMU_EXPORT$$;
 							type: "popup_open"
 						});
 					}
-					// fixme: this actually doesn't work, because it's not counted as being part of a user event
 					if (false && was_fullscreen) {
 						popup_set_fullscreen();
 					}
@@ -34512,30 +32990,23 @@ var $$IMU_EXPORT$$;
 			});
 		}
 		function get_final_from_source(source, options, cb) {
-			// FIXME: "multi" is used purely for replace_images,
-			//   so it's used as a check for many options that have nothing to do with multi
 			var processing = { running: true };
 			if (!options.multi) {
 				stop_processing();
 				processing_list = [processing];
 			}
-			//console_log(source);
 			var do_popup = function() {
 				if (!options.multi)
 					start_waiting(source.el);
 				var x = mouseX;
 				var y = mouseY;
 				var realcb = function(source_imu, data) {
-					//console_log(source_imu);
-					//console_log(data);
-					// why && false here? this should be clarified
 					if ((!source_imu && false) || !data) {
 						if (!options.multi) {
 							stop_waiting_cant_load();
 						}
 						return cb();
 					}
-					// In case the user has dragged while loading the next image (#154)
 					if (options.use_last_pos) {
 						x = null;
 						y = null;
@@ -34547,7 +33018,6 @@ var $$IMU_EXPORT$$;
 					});
 				};
 				try {
-					// FIXME: shouldn't this be ||?
 					var force_page = settings.mouseover_ui_caption && settings.redirect_force_page;
 					bigimage_recursive_loop(source.src, {
 						fill_object: true,
@@ -34565,8 +33035,6 @@ var $$IMU_EXPORT$$;
 							return finalcb(source.src, obj[0], null);
 						}
 						var newobj = deepcopy(obj);
-						// TODO: find a way to fix bad images popping up because they weren't caught in addImage (because of do_request: null)
-						// brl returns [] if they're bad, but the bad sources are added right back here
 						if (!settings.mouseover_exclude_sameimage) {
 							if (source.src && obj_indexOf(newobj, source.src) < 0)
 								newobj.push(fillobj(source.src)[0]);
@@ -34618,7 +33086,6 @@ var $$IMU_EXPORT$$;
 								console_log(orig_obj);
 							finalcb(newurl1, data.obj, data);
 							if (false) {
-								// why?
 								if (newurl == source.src) {
 									realcb(obj, data);
 								} else {
@@ -34629,9 +33096,6 @@ var $$IMU_EXPORT$$;
 					});
 				} catch (e) {
 					console_error(e);
-					//console.trace();
-					// this doesn't work
-					//makePopup(source.src);
 				}
 			};
 			if (delay && !delay_mouseonly && !options.automatic) {
@@ -34704,9 +33168,6 @@ var $$IMU_EXPORT$$;
 			}
 			return cb(value);
 		}
-		// https://developer.chrome.com/en/blog/tablesng/
-		// keeps re-requesting the same element, which causes massive performance issues
-		// <img alt="correct and incorrect table rendering" height="333" loading="lazy" sizes="(min-width: 800px) 800px, calc(100vw - 48px)" src="https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?auto=format" srcset="https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=200 200w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=228 228w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=260 260w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=296 296w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=338 338w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=385 385w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=439 439w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=500 500w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=571 571w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=650 650w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=741 741w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=845 845w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=964 964w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=1098 1098w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=1252 1252w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=1428 1428w, https://developer-chrome-com.imgix.net/image/HodOHWjMnbNw56hvNASHWSgZyAf2/Ms8AqAJn1oKmM1thWYut.png?w=1600 1600w" width="800">
 		var valid_el_cache = new IMUCache();
 		function is_valid_el(el) {
 			if (!el)
@@ -34765,7 +33226,6 @@ var $$IMU_EXPORT$$;
 					if (!newel || !is_valid_el(newel))
 						return cb();
 					count++;
-					//if (count >= max) return cb();
 					el = newel;
 					if (!set_has(els_set, el)) {
 						set_add(els_set, el);
@@ -34775,7 +33235,6 @@ var $$IMU_EXPORT$$;
 							els.unshift(el);
 						}
 					}
-					// large galleries can cause stack overflows, as well as hanging the page
 					stackoverflow_guard(function() {
 						loop(nextprev, cb);
 					}, count, 100);
@@ -34927,7 +33386,6 @@ var $$IMU_EXPORT$$;
 			set_popup_transforms(transforms);
 			popup_createui_func(true);
 		}
-		// hv: vertical = true, horizontal = false
 		var flip_gallery = function(hv) {
 			if (!popups_active)
 				return;
@@ -34971,7 +33429,6 @@ var $$IMU_EXPORT$$;
 			var progressc_el = document_createElement("div");
 			set_el_all_initial(progressc_el);
 			progressc_el.style.backgroundColor = "rgba(0,0,0,0.7)";
-			//progressc_el.style.padding = "1em";
 			progressc_el.style.height = "2em";
 			progressc_el.style.zIndex = maxzindex - 2;
 			var progressb_el = document_createElement("div");
@@ -34979,7 +33436,6 @@ var $$IMU_EXPORT$$;
 			progressb_el.style.position = "absolute";
 			progressb_el.style.top = "0px";
 			progressb_el.style.left = "0px";
-			//progressb_el.style.backgroundColor = "#00aa00";
 			progressb_el.style.backgroundColor = "#00aaff";
 			progressb_el.style.height = "100%";
 			progressb_el.style.width = "0%";
@@ -35109,7 +33565,6 @@ var $$IMU_EXPORT$$;
 			var replaced = false;
 			if (do_replace || (typeof replacement !== "string" && replacement.tagName === "VIDEO")) {
 				if (typeof replacement !== "string") {
-					// todo: only replace on either blob url (hls/dash), or when the source el was a picture
 					el = replace_el(el, replacement);
 					replaced = true;
 				} else {
@@ -35118,7 +33573,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (!replaced && options.replace_imgs) {
-				// srcset can override src: https://github.com/qsniyg/maxurl/issues/659
 				if (el.hasAttribute("srcset")) {
 					el.removeAttribute("srcset");
 				}
@@ -35172,8 +33626,6 @@ var $$IMU_EXPORT$$;
 			} else if (data.data.obj) {
 				var load_image = function() {
 					if (settings.replaceimgs_wait_fullyloaded && options.replace_imgs) {
-						// Preload the image, as adding onload/onerror to existing images won't fire the event
-						// todo: support videos
 						var image = new Image();
 						var finish_image = function() {
 							replace_with_replacement(options, source.el, image.src, data.data.obj.url);
@@ -35219,7 +33671,6 @@ var $$IMU_EXPORT$$;
 					raw_imgs = get_all_valid_els();
 				}
 			}
-			// remove non-images/videos
 			var imgs = [];
 			if (!options.all_els_ok) {
 				var parent_els = new_set();
@@ -35239,8 +33690,6 @@ var $$IMU_EXPORT$$;
 					}
 				}
 				if (options.support_plainlinks) {
-					// linked media are not plainlinks
-					// fixme: does this work for non-document?
 					for (var i = 0; i < imgs.length; i++) {
 						if (imgs[i].tagName === "A" && set_has(parent_els, imgs[i])) {
 							imgs.splice(i, 1);
@@ -35264,7 +33713,6 @@ var $$IMU_EXPORT$$;
 			var finish_img = function(id) {
 				finished++;
 				if (options.use_progressbar) {
-					//update_progress_el(progressc_el, finished / total_imgs, true);
 					ip.finish_id(id);
 					console_log("Finished " + finished + "/" + total_imgs);
 				}
@@ -35272,9 +33720,6 @@ var $$IMU_EXPORT$$;
 					if (options.use_progressbar) {
 						update_progress_el(progressc_el, final_progress, true);
 					}
-					//if (options.use_progressbar) {
-					//	progressc_el.parentElement.removeChild(progressc_el);
-					//}
 					replacing_imgs = false;
 					if (options.finalcb) {
 						options.finalcb(function(progress) {
@@ -35284,7 +33729,6 @@ var $$IMU_EXPORT$$;
 						});
 					}
 				} else {
-					// stack overflows are unlikely because we're mostly running from callbacks, but it may be possible if we're retrieving cached images?
 					stackoverflow_guard(next_img, finished, 100);
 				}
 			};
@@ -35295,7 +33739,6 @@ var $$IMU_EXPORT$$;
 							domain_processed_cb();
 							return cb();
 						} else {
-							// Not perfect, but 5 seconds should be enough
 							replaceimgs_elcache.set(our_source.el, true, 5);
 						}
 					}
@@ -35304,7 +33747,6 @@ var $$IMU_EXPORT$$;
 					var null_if_no_change = true;
 					if (our_source.el.tagName === "A") {
 						use_head = null_if_no_change = !options.plainlink_replace_media;
-						// otherwise it'll request a lot of links, most of which aren't images
 						if (!null_if_no_change) {
 							null_if_no_change = !looks_like_valid_link(our_source.src, our_source.el);
 						}
@@ -35350,7 +33792,6 @@ var $$IMU_EXPORT$$;
 					var wait_delay = replaceimgs_delay - delta;
 					if (wait_delay > 0) {
 						if (domains_timeout[domain] === null) {
-							// wrap in closure to capture domain for the callback
 							(function(domain) {
 								domains_timeout[domain] = setTimeout(function() {
 									domains_timeout[domain] = null;
@@ -35405,7 +33846,6 @@ var $$IMU_EXPORT$$;
 			var other = [];
 			var total_imgs = imgs.length;
 			for (var i = 0; i < imgs.length; i++) {
-				// fixme: if find_source only returns null, it will "hang" (progress bar will never close)
 				var source = find_source([imgs[i]], { links: options.support_plainlinks });
 				if (!source) {
 					total_imgs--;
@@ -35514,7 +33954,6 @@ var $$IMU_EXPORT$$;
 							console_error("Unable to connect to JDownloader", resp);
 							return cb(false);
 						} else {
-							// ensure it's valid json
 							try {
 								JSON.parse(resp.responseText);
 							} catch (e) {
@@ -35545,7 +33984,6 @@ var $$IMU_EXPORT$$;
 						if (our_referer) {
 							our_obj.referer = our_referer;
 							referer_key = our_referer;
-							// batch referers by domain, hopefully avoiding package spam
 							if (referer_policy === "domain") {
 								referer_key = get_domain_from_url(referer_key);
 							}
@@ -35566,7 +34004,6 @@ var $$IMU_EXPORT$$;
 					var descs = [];
 					var fnames = [];
 					array_foreach(referer_obj.urls, function(url) {
-						// thanks to Jiaz from JDownloader for the directhttp trick
 						urls.push("directhttp://" + url.url);
 						fnames.push(url.fnames);
 						descs.push(url.desc);
@@ -35578,7 +34015,6 @@ var $$IMU_EXPORT$$;
 					};
 					if (foldername)
 						query.package = foldername;
-					//if (referer_obj.referer)
 					query.referer = referer_obj.referer || "";
 					if (settings.gallery_jd_autostart)
 						query.autostart = "1";
@@ -35626,9 +34062,7 @@ var $$IMU_EXPORT$$;
 					return;
 				var our_vars = deepcopy(obj.format_vars);
 				our_vars.ext = ".zip";
-				// got_objs is used because files is not populated for jdownloader
 				our_vars.items_amt = Object.keys(got_objs).length.toString(); //Object.keys(files).length.toString();
-				//our_vars.filename = our_vars.filename_noext + our_vars.ext;
 				filename = get_filename_from_format(settings.gallery_zip_filename_format, our_vars);
 				if (!filename)
 					filename = "download";
@@ -35735,9 +34169,7 @@ var $$IMU_EXPORT$$;
 					}
 					src = data.data.resp.finalUrl;
 				}
-				// fixme: if img is blob, we need to free it
 				if (data.data.img) {
-					// otherwise it'll both use bandwidth and play the audio
 					if (data.data.img.tagName === "VIDEO") {
 						data.data.img.pause();
 					}
@@ -35746,7 +34178,6 @@ var $$IMU_EXPORT$$;
 				var obj = data.data.obj || {};
 				var origurl = obj.url;
 				var filename = null; // to be filled by fill_filename
-				//obj = overlay_object(obj, { url: src });
 				if (set_has(urls, origurl)) {
 					return cb();
 				} else {
@@ -35755,7 +34186,6 @@ var $$IMU_EXPORT$$;
 				var fill_filename = function(use_download) {
 					fill_obj_filename(obj, origurl, data.data.respdata);
 					filename = obj.filename;
-					// this should hopefully not happen
 					if (use_download && !filename)
 						filename = "download";
 					if (filename && filename in files) {
@@ -35784,7 +34214,6 @@ var $$IMU_EXPORT$$;
 					final_cb();
 					return;
 				}
-				// todo: some kind of infoobj_to_requestobj function
 				request_chunked({
 					url: src,
 					headers: obj.headers
@@ -35802,7 +34231,6 @@ var $$IMU_EXPORT$$;
 					images: els,
 					all_els_ok: true,
 					replace_image_func: function(options, our_source, cb, domain_processed_cb, progress_cb) {
-						//console_log(our_source);
 						var gffs_options = {
 							automatic: true,
 							multi: true,
@@ -35826,7 +34254,6 @@ var $$IMU_EXPORT$$;
 								if (typeof source === "undefined" && !settings.gallery_download_unchanged) {
 									console_warn("Not downloading unchanged image", our_source);
 								} else {
-									// source is undefined for non-existing urls too
 									console_error("Unable to download", source, our_source);
 									if (settings.gallery_zip_add_info_file) {
 										failed_infos.push(get_failed_info(our_source));
@@ -35881,11 +34308,7 @@ var $$IMU_EXPORT$$;
 					finalcb_progress: 0.1
 				});
 			};
-			// fetching the gallery elements can take time if it's a large gallery, so let the user know we have received input
-			// no, don't do this (yet)! it'll take longer to update the css of every element than it will to fetch the gallery elements (tested with 5000)
-			//start_waiting();
 			get_gallery_elements(function(els) {
-				//stop_waiting();
 				process_gallery_els(els);
 			});
 		};
@@ -35929,7 +34352,6 @@ var $$IMU_EXPORT$$;
 			return true;
 		};
 		var get_highlightimgs_valid_image = function(el) {
-			// TODO: dynamic attribute name
 			if (el.hasAttribute("data-imu-valid")) {
 				return !!parse_boolean(el.getAttribute("data-imu-valid"));
 			}
@@ -35938,7 +34360,6 @@ var $$IMU_EXPORT$$;
 			return valid;
 		};
 		var get_highlightimgs_supported_image = function(el) {
-			// TODO: dynamic attribute name
 			if (el.hasAttribute("data-imu-supported")) {
 				return !!parse_boolean(el.getAttribute("data-imu-supported"));
 			}
@@ -36041,7 +34462,6 @@ var $$IMU_EXPORT$$;
 					}
 					if (!popup_mouse_head())
 						return;
-					// TODO: make configurable
 					if (false) {
 						var source = find_source([e.target]);
 						if (source && get_physical_popup_el(source.el) !== last_popup_el) {
@@ -36069,7 +34489,6 @@ var $$IMU_EXPORT$$;
 			if (highlight === "always" || highlight === "hover")
 				highlight_images({ images: images, hoveronly: highlight === "hover", is_auto: true });
 			for (var i = 0; i < images.length; i++) {
-				// apparently this isn't needed to ensure no duplicate event listeners?
 				our_removeEventListener(images[i], "mouseover", image_mouseover);
 				our_removeEventListener(images[i], "mouseout", image_mouseout);
 				our_addEventListener(images[i], "mouseover", image_mouseover);
@@ -36082,7 +34501,6 @@ var $$IMU_EXPORT$$;
 		(function() {
 			if (is_suspended())
 				return;
-			// TODO: allow this to be automatically updated
 			if (settings.apply_blacklist_host && !bigimage_filter(window.location.href))
 				return;
 			var observer;
@@ -36143,7 +34561,6 @@ var $$IMU_EXPORT$$;
 			};
 			var create_mutationobserver = function() {
 				try {
-					// In case the browser doesn't support MutationObservers
 					observer = new_mutationobserver();
 				} catch (e) {
 					console_warn(e);
@@ -36163,7 +34580,6 @@ var $$IMU_EXPORT$$;
 					disconnect();
 				}
 			};
-			// replaceimgs_auto is intentionally not added here due to the warning
 			var orig_highlightfunc = settings_meta.highlightimgs_auto.onupdate;
 			settings_meta.highlightimgs_auto.onupdate = function() {
 				if (orig_highlightfunc)
@@ -36208,8 +34624,6 @@ var $$IMU_EXPORT$$;
 						cursor_not_allowed();
 						return;
 					}
-					//console_log("urls", urls);
-					// todo: only request ffmpeg if necessary
 					get_ffmpeg(function(ffmpeg) {
 						if (!ffmpeg) {
 							cursor_not_allowed();
@@ -36230,12 +34644,10 @@ var $$IMU_EXPORT$$;
 							}
 							update_progress_el(progress_el, progobj.percent * 0.9, true);
 						}, function(data) {
-							//console_log("final data", data);
 							ffmpeg_join(ffmpeg, data, function(percent) {
 								update_progress_el(progress_el, 0.9 + (percent * 0.1), true);
 							}, function(filename) {
 								update_progress_el(progress_el, 1, true);
-								//console_log(filename);
 								var data = ffmpeg.FS("readFile", filename);
 								new_blob(data, function(blob) {
 									var out_ext = url_basename(filename, { split_ext: true })[1];
@@ -36254,7 +34666,6 @@ var $$IMU_EXPORT$$;
 		};
 		var get_popup_video = function() {
 			var videoel = popups[0].getElementsByTagName("video");
-			// TODO: rename this function to get_popup_stream
 			if (!videoel || videoel.length === 0) {
 				videoel = popups[0].getElementsByTagName("audio");
 			}
@@ -36581,7 +34992,6 @@ var $$IMU_EXPORT$$;
 			return false;
 		};
 		var action_remote = function(actions) {
-			// use can_use_remote instead of can_iframe_popout because this doesn't necessarily pop out of iframes
 			if (can_use_remote()) {
 				var recipient = "top";
 				var has_mouse = true;
@@ -36596,7 +35006,6 @@ var $$IMU_EXPORT$$;
 						}
 					}
 				}
-				//console_log(deepcopy(actions));
 				for (var i = 0; i < actions.length; i++) {
 					if (!has_mouse && actions[i].requires_mouse) {
 						actions.splice(i, 1);
@@ -36643,8 +35052,6 @@ var $$IMU_EXPORT$$;
 			}
 			return retval;
 		};
-		// https://github.com/qsniyg/maxurl/issues/680
-		// contextmenu and mousedown are both run for right click, same timeStamp
 		var event_cache = new IMUCache();
 		var get_event_cache_key = function(event) {
 			var down = true;
@@ -36658,7 +35065,6 @@ var $$IMU_EXPORT$$;
 			return down + " " + keystrs_arr.join(",") + " " + event.timeStamp;
 		};
 		var keydown_cb = function(event) {
-			// otherwise rebinding the trigger key will fail
 			if (is_options_page)
 				return;
 			nir_debug("input", "keydown_cb", event);
@@ -36667,8 +35073,6 @@ var $$IMU_EXPORT$$;
 			if (event.type === "wheel" && chord_is_only_wheel(current_chord))
 				return;
 			if (event.type === "keydown") {
-				// thanks to lnp5131 on github: https://github.com/qsniyg/maxurl/issues/415#issuecomment-684847125
-				// it seems that even keys like control will cause a repeat under certain configurations
 				if (event.repeat)
 					return;
 				if (editing_text)
@@ -36692,7 +35096,6 @@ var $$IMU_EXPORT$$;
 				return do_event_return(event, event_cache.get(event_cache_key));
 			}
 			if (is_extension && settings.extension_contextmenu && event.type === "mousedown") {
-				// https://github.com/qsniyg/maxurl/issues/679
 				if (trigger_complete(["shift", "button2"])) {
 					update_contextmenu_pos(event);
 				}
@@ -36707,7 +35110,6 @@ var $$IMU_EXPORT$$;
 						if (!event_in_chord(event, trigger))
 							return;
 						if (trigger_complete(trigger) && !popups_active) {
-							// clear timeout so that all/any close behavior works
 							current_chord_timeout = {};
 							if (!delay_handle) {
 								actions.push({
@@ -36720,7 +35122,6 @@ var $$IMU_EXPORT$$;
 							}
 							trigger_id = i ? (i + 1) : null;
 							if (get_tprofile_setting("mouseover_open_behavior") !== "popup") {
-								// especially relevant for new tab
 								clear_chord();
 							}
 						}
@@ -36741,7 +35142,6 @@ var $$IMU_EXPORT$$;
 				ret = false;
 				release_ignore = settings.highlightimgs_keybinding;
 			}
-			// don't run if another function above was already triggered (e.g. when close is bound to the same key as trigger)
 			if (settings.mouseover && ret !== false) {
 				var is_popup_active = popup_el_remote || (popup_active());
 				var keybinds = [
@@ -36761,13 +35161,11 @@ var $$IMU_EXPORT$$;
 					},
 					{
 						key: settings.mouseover_download_key,
-						// Clear the chord because keyup might not be called due to the save dialog popup
 						clear: true,
 						action: { type: "download" }
 					},
 					{
 						key: settings.mouseover_open_new_tab_key,
-						// Clear the chord because opening in a new tab will not release the keys
 						clear: true,
 						action: { type: "open_in_new_tab" }
 					},
@@ -36782,13 +35180,11 @@ var $$IMU_EXPORT$$;
 					},
 					{
 						key: settings.mouseover_open_options_key,
-						// Clear the chord because opening in a new tab will not release the keys
 						clear: true,
 						action: { type: "open_options" }
 					},
 					{
 						key: settings.mouseover_open_orig_page_key,
-						// Clear the chord because opening in a new tab will not release the keys
 						clear: true,
 						action: { type: "open_orig_page" }
 					},
@@ -36878,7 +35274,6 @@ var $$IMU_EXPORT$$;
 					},
 					{
 						key: settings.mouseover_video_screenshot_key,
-						// Clear the chord because keyup might not be called due to the save dialog popup
 						clear: true,
 						action: { type: "screenshot_video" }
 					},
@@ -36889,7 +35284,6 @@ var $$IMU_EXPORT$$;
 					{
 						key: settings.mouseover_gallery_download_key,
 						action: { type: "download_gallery" },
-						// Clear the chord because keyup might not be called due to the save dialog popup
 						clear: true
 					},
 					{
@@ -36961,7 +35355,6 @@ var $$IMU_EXPORT$$;
 			var can_cancel = popups_active;
 			if (!can_cancel) {
 				if (settings.mouseover_cancel_popup_when_release ||
-					// this probably makes the most sense (#417, thanks to lnp5131 on github for reporting)
 					(settings.mouseover_close_need_mouseout && !can_close_popup[1])) {
 					can_cancel = true;
 				}
@@ -36975,7 +35368,6 @@ var $$IMU_EXPORT$$;
 				}
 				return;
 			}
-			// 27 = esc
 			if (event.which === 27) {
 				if (delay_handle_triggering && popup_trigger_reason === "mouse" && !settings.mouseover_cancel_popup_with_esc)
 					return;
@@ -37009,9 +35401,6 @@ var $$IMU_EXPORT$$;
 				(doc && doc.clientTop || body && body.clientTop || 0);
 		}
 		var get_move_with_cursor = function() {
-			// don't require this for now, because esc can also be used to close the popup
-			//var close_el_policy = get_single_setting("mouseover_close_el_policy");
-			// maybe disable if popup position == center, and "move within page" is activated?
 			return settings.mouseover_move_with_cursor && !popup_hold; // && close_el_policy === "thumbnail";
 		};
 		function do_popup_pan(popup, event, mouseX, mouseY) {
@@ -37024,7 +35413,6 @@ var $$IMU_EXPORT$$;
 			var border_thresh = 20;
 			var min_move_amt = parse_int(settings.mouseover_drag_min);
 			var moved = false;
-			// lefttop: true = top, false = left
 			var dodrag = function(lefttop) {
 				var orig = parseInt(lefttop ? popup.style.top : popup.style.left);
 				var mousepos = lefttop ? mouseY : mouseX;
@@ -37053,16 +35441,9 @@ var $$IMU_EXPORT$$;
 					popup_clientrect = get_popup_client_rect();
 					popup_media_clientrect = get_popup_media_client_rect();
 				}
-				// offset* is very slow, slower than setting top/left! 250ms vs 30ms after a while
-				//var offsetD = lefttop ? popup.offsetHeight : popup.offsetWidth;
-				// offsetD and mediaOffsetD can differ when rotating, because the popup's dimensions don't get updated
 				var offsetD = lefttop ? popup_clientrect.height : popup_clientrect.width;
 				var mediaOffsetD = lefttop ? popup_media_clientrect.height : popup_media_clientrect.width;
-				// the popup is always in the middle, so if the media is rotated, adding the difference in offset allows the position to be accurate
 				var offset_add = (mediaOffsetD - offsetD) / 2;
-				// mediaOffsetD will usually be smaller than offsetD because of the border
-				// if the popup isn't rotated (or 180), we prefer offsetD
-				// a proper fix would be nice though, as this only improves the situation for unrotated, which creates inconsistent behavior when rotated
 				if (Math_abs(offset_add) < border_thresh) {
 					mediaOffsetD = offsetD;
 					offset_add = 0;
@@ -37086,7 +35467,6 @@ var $$IMU_EXPORT$$;
 			var domovewith = function(lefttop) {
 				var orig = parseInt(lefttop ? popup.style.top : popup.style.left);
 				var mousepos = lefttop ? mouseY : mouseX;
-				//var popupopen = lefttop ? popupOpenY : popupOpenX;
 				var last = lefttop ? popupOpenLastY : popupOpenLastX;
 				var current = mousepos - last + orig;
 				if (settings.mouseover_move_within_page) {
@@ -37122,10 +35502,7 @@ var $$IMU_EXPORT$$;
 				domovement(true);
 			}
 			if (move_with_cursor) {
-				// make sure to fix this for remote (this is called at the top frame, but popup_el is remote)
-				//var popup_el_rect = popup_el.getBoundingClientRect();
 				var popup_el_rect = null;
-				// don't check for now, maybe add this as an option later?
 				if (true || in_clientrect(mouseX, mouseY, popup_el_rect)) {
 					domovewith(false);
 					domovewith(true);
@@ -37147,7 +35524,6 @@ var $$IMU_EXPORT$$;
 						popup_el_remote = sender;
 						popup_el = null;
 						real_popup_el = null;
-						//console_log("Making popup", message);
 						makePopup(message.data.source_imu, message.data.src, message.data.processing, message.data.data);
 					});
 				}
@@ -37168,7 +35544,6 @@ var $$IMU_EXPORT$$;
 					from_remote: true
 				});
 			} else if (message.type === "mousemove") {
-				// todo: offset iframe location
 				mousemove_cb(message.data);
 			} else if (message.type === "action") {
 				for (var i = 0; i < message.data.length; i++) {
@@ -37205,14 +35580,11 @@ var $$IMU_EXPORT$$;
 			return false;
 		};
 		if (is_extension) {
-			// TODO: move out of do_mouseover
 			chrome.runtime.onMessage.addListener(function(message, sender, respond) {
 				if (_nir_debug_) {
 					console_log("chrome.runtime.onMessage", message);
 				}
 				if (message.type === "context_imu") {
-					// https://github.com/qsniyg/maxurl/issues/517
-					// TODO: also set mouse_frame_id in oncontextmenu
 					if (mouse_frame_id !== current_frame_id)
 						return;
 					popup_trigger_reason = "contextmenu";
@@ -37240,7 +35612,6 @@ var $$IMU_EXPORT$$;
 				}
 				if (!can_use_remote() || !event.data || typeof event.data !== "object" || !(imu_message_key in event.data))
 					return;
-				// TODO: update id_to_iframe with event.source (remember that event.source is a window object, not an iframe)
 				handle_remote_event(event.data[imu_message_key]);
 			}, false);
 		}
@@ -37254,13 +35625,10 @@ var $$IMU_EXPORT$$;
 			}
 		};
 		our_addEventListener(document, "wheel", wheel_cb, { passive: false });
-		// https://github.com/qsniyg/maxurl/issues/771
-		// seems to be a bug in chrome. if both a "wheel" and a "mousewheel" (deprecated) event are set on document, it will not fire the mousewheel event
 		if (host_domain_nosub === "bilibili.com" && navigator.userAgent.indexOf("Chrome/") >= 0) {
 			our_addEventListener(document, "wheel", function(e) {
 				var ev = document.createEvent("MouseEvents");
 				ev.initEvent("mousewheel", true, true);
-				//ev.originalEvent = e.originalEvent || e;
 				ev.wheelDelta = e.wheelDelta;
 				ev.detail = e.detail;
 				ev.deltaMode = e.deltaMode;
@@ -37271,7 +35639,6 @@ var $$IMU_EXPORT$$;
 		}
 		var update_mouse_from_event = function(event) {
 			if (event.pageX === null && event.clientX !== null) {
-				// commenting out because unused and sets global variables
 				/*eventDoc = (event.target && event.target.ownerDocument) || document;
 				doc = eventDoc.documentElement;
 				body = eventDoc.body;*/
@@ -37284,15 +35651,12 @@ var $$IMU_EXPORT$$;
 					if (!iframe) {
 						return;
 					}
-					//console_log(iframe);
 					var bb = get_bounding_client_rect(iframe);
-					// fixme: should this be done?
 					event.clientX += bb.left;
 					event.clientY += bb.top;
 					event.pageX += bb.left + window.scrollX;
 					event.pageY += bb.top + window.scrollY;
 				} else if (is_in_iframe) {
-					// todo: add timeouts to avoid too much cpu usage
 					last_remote_mousemove_event = event;
 					var mindelta = 16;
 					if (!settings.mouseover_use_remote) {
@@ -37325,7 +35689,6 @@ var $$IMU_EXPORT$$;
 		};
 		var mousemove_cb = function(event) {
 			mousepos_initialized = true;
-			// https://stackoverflow.com/a/7790764
 			event = event || window.event;
 			update_mouse_from_event(event);
 			if (waiting) {
@@ -37339,8 +35702,6 @@ var $$IMU_EXPORT$$;
 			var do_mouse_close_mouse = popup_trigger_reason === "mouse";
 			if (do_mouse_close_kbd || do_mouse_close_mouse) {
 				if (popups_active) {
-					// FIXME: why was this not in if (popups_active)?
-					// The reason for putting it here is that if the mouse moves (even within jitter thresh) after a single popup is open, it will cancel the popup request
 					if (delay_handle) {
 						clearTimeout(delay_handle);
 						delay_handle = null;
@@ -37349,7 +35710,6 @@ var $$IMU_EXPORT$$;
 					}
 					var jitter_threshx = 40;
 					var jitter_threshy = jitter_threshx;
-					//var img = popups[0].getElementsByTagName("img")[0];
 					var img = get_popup_media_el();
 					var imgmiddleX = null;
 					var imgmiddleY = null;
@@ -37384,10 +35744,8 @@ var $$IMU_EXPORT$$;
 					var close_on_leave_el = (close_el_policy === "thumbnail" || close_el_policy === "both") && popup_el && !popup_el_automatic;
 					var outside_of_popup_el = false;
 					var popup_el_hidden = false;
-					// check if we should check if the mouse has left popup_el (the source/thumbnail that was popped up from, _not_ the element of the popup)
 					if (close_on_leave_el) {
 						var popup_el_rect = get_bounding_client_rect(popup_el);
-						// check if the source element is visible
 						if (popup_el_rect && popup_el_rect.width > 0 && popup_el_rect.height > 0) {
 							var our_in_img_jitter = in_img_jitter;
 							if (close_el_policy === "thumbnail")
@@ -37399,7 +35757,6 @@ var $$IMU_EXPORT$$;
 								}
 							}
 						} else {
-							// the element must be hidden
 							popup_el_hidden = true;
 						}
 					}
@@ -37408,8 +35765,6 @@ var $$IMU_EXPORT$$;
 						if (imgmiddleX && imgmiddleY &&
 							(Math_abs(mouseX - imgmiddleX) > jitter_threshx ||
 								Math_abs(mouseY - imgmiddleY) > jitter_threshy)) {
-							//console_log(mouseX, imgmiddleX, jitter_threshx);
-							//console_log(mouseY, imgmiddleY, jitter_threshy);
 							do_mouse_reset();
 						}
 					} else if (close_on_leave_el) {
@@ -37427,7 +35782,6 @@ var $$IMU_EXPORT$$;
 				}
 			}
 			if (mouseover_mouse_enabled()) {
-				// FIXME: this is rather weird. Less CPU usage, but doesn't behave in the way one would expect
 				if ((!popups_active || popup_el_automatic) && !should_exclude_imagetab()) {
 					if (delay_handle && !settings.mouseover_trigger_mouseover) {
 						var trigger_mouse_jitter_thresh = 10;
@@ -37439,7 +35793,6 @@ var $$IMU_EXPORT$$;
 					}
 					mouseDelayX = mouseX;
 					mouseDelayY = mouseY;
-					//mouse_in_image_yet = false;
 					if (last_popup_el) {
 						var popup_el_rect = get_bounding_client_rect(last_popup_el);
 						if (!in_clientrect(mouseX, mouseY, popup_el_rect)) {
@@ -37461,7 +35814,6 @@ var $$IMU_EXPORT$$;
 			register_menucommand("Report issue", github_issues_page);
 		})();
 	}
-	// end do_mouseover
 	function do_websitehome() {
 		if (require_rules_failed)
 			return;
@@ -37601,12 +35953,10 @@ var $$IMU_EXPORT$$;
 	};
 	var do_greasyfork_page = function() {
 		var imgel = document.querySelector("div.script-author-description > center > img[alt='Image Max URL']");
-		// greasyfork redesign
 		if (!imgel)
 			imgel = document.querySelector("#additional-info > center > img[alt='Image Max URL']");
 		if (!imgel)
 			return;
-		// make sure it's the same general layout
 		if (imgel.parentElement.previousElementSibling ||
 			imgel.parentElement.nextElementSibling.tagName !== "UL")
 			return;
@@ -37621,7 +35971,6 @@ var $$IMU_EXPORT$$;
 		var imgel = document.querySelector("div#user-content > p[align='center'] img[alt='Image Max URL']");
 		if (!imgel)
 			return;
-		// make sure it's the same general layout
 		if ((imgel.parentElement.previousElementSibling && imgel.parentElement.previousElementSibling.tagName !== "HR") ||
 			imgel.parentElement.nextElementSibling.tagName !== "UL")
 			return;
@@ -37655,7 +36004,6 @@ var $$IMU_EXPORT$$;
 			if (arg[1] === '-') {
 				longarg = arg.substr(2);
 			} else {
-				// TODO: support chained args (-abc == -a -b -c)
 				shortarg = arg.substr(1);
 			}
 			var our_arg = null;
