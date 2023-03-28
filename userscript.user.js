@@ -8,6 +8,7 @@
 // @author            Glavor
 // @homepageURL       https://qsniyg.github.io/maxurl/options.html
 // @icon              https://raw.githubusercontent.com/qsniyg/maxurl/b5c5488ec05e6e2398d4e0d6e32f1bbad115f6d2/resources/logo_256.png
+// @match             *://qsniyg.github.io/*
 // @match             *://*.sinaimg.cn/*
 // @match             *://*.twitter.com/*
 // @match             *://*.twimg.com/*
